@@ -32,6 +32,6 @@
 *.dSYM/
 *.su
 
-#out files
-*.out
+# Temporary files
+*.swp
 
