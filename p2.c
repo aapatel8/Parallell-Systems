@@ -126,10 +126,10 @@ int main(int argc, char *argv[]) {
     
     for(i=start_x, j=0; i < end_x; i++, j++) {
         err[j] = fabs(dy[j] - dfn(x[i]));
-        //if(fabs(dy[j]) < EPSILON) {
-           // local_min_max[min_max_count++] = x[i];
-          // printf("\nMIN/MAX found at x= %f , dy= %f ",x[i], dy[j]);
-       // }
+        if(fabs(dy[j]) < EPSILON) {
+            local_min_max[min_max_count++] = x[i];
+           printf("\nMIN/MAX found at x= %f , dy= %f ",x[i], dy[j]);
+        }
         //printf("%d %d %d %8f, %8f, %8f, %8f, %8f, %e\n", rank, i, j, x[i], fn(x[i]), y[j], dfn(x[i]), dy[j], err[j]);
         //printf("%d %d %d %8f %10e\n",rank, i, j, x[i], err[j]);
     }
