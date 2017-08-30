@@ -121,7 +121,7 @@ void calculate_y_axis_values(double *x, double *y, double *dy, double *err, int 
     }
 }
 
-void non_blocking_transfer_boundary_valuesint rank, int size, int n_ngrid, 
+void non_blocking_transfer_boundary_values(int rank, int size, int n_ngrid, 
                         int pred, int succ, double *x, double *y, double *dy, 
                         MPI_Comm new_comm) {
     int i, j;
@@ -141,17 +141,17 @@ void non_blocking_transfer_boundary_valuesint rank, int size, int n_ngrid,
         y[n_ngrid+1] = fn(x[NGRID]);
         reqs = (MPI_Request *) malloc(2*sizeof(MPI_Request));
         stats = (MPI_Status *) malloc(2*sizeof(MPI_Status));
-        MPI_Irecv(&y[0], 1, MPI_DOUBLE, pred, RECV_FROM_PRED, new_comm, &recv1);
-        MPI_Isend(&y[1], 1, MPI_DOUBLE, pred, SEND_TO_PRED, new_comm, &send1);
+        MPI_Irecv(&y[0], 1, MPI_DOUBLE, pred, RECV_FROM_PRED, new_comm, &reqs[0]);
+        MPI_Isend(&y[1], 1, MPI_DOUBLE, pred, SEND_TO_PRED, new_comm, &reqs[1]);
         MPI_Waitall(2, reqs, stats);
     } else {
         reqs = (MPI_Request *) malloc(4*sizeof(MPI_Request));
         stats = (MPI_Status *) malloc(4*sizeof(MPI_Status));
-        MPI_Irecv(&y[0], 1, MPI_DOUBLE, pred, RECV_FROM_PRED, new_comm, &recv1);
-        MPI_Irecv(&y[n_ngrid+1], 1, MPI_DOUBLE, succ, RECV_FROM_SUCC, new_comm, &recv2);
+        MPI_Irecv(&y[0], 1, MPI_DOUBLE, pred, RECV_FROM_PRED, new_comm, &reqs[0]);
+        MPI_Irecv(&y[n_ngrid+1], 1, MPI_DOUBLE, succ, RECV_FROM_SUCC, new_comm, &reqs[1]);
 
-        MPI_Isend(&y[n_ngrid], 1, MPI_DOUBLE, succ, SEND_TO_SUCC, new_comm, &send1); 
-        MPI_Isend(&y[1], 1, MPI_DOUBLE, pred, SEND_TO_PRED, new_comm, &send2);
+        MPI_Isend(&y[n_ngrid], 1, MPI_DOUBLE, succ, SEND_TO_SUCC, new_comm, &reqs[2]); 
+        MPI_Isend(&y[1], 1, MPI_DOUBLE, pred, SEND_TO_PRED, new_comm, &reqs[3]);
         MPI_Waitall(4, reqs, stats);
         }
     for(j=1; j<=n_ngrid; j++) {
