@@ -153,10 +153,13 @@ int main(int argc, char *argv[]) {
         
         if(fabs(dy[j]) < EPSILON) {
             local_min_max[min_max_count++] = x[i];
-           printf("\nMIN/MAX found at x= %f , dy= %f ",x[i], dy[j]);
+           printf("\nProcess %d found MIN/MAX at x= %f , dy= %f ",rank, x[i], dy[j]);
         }
         //printf("%d %d %d %8f, %8f, %8f, %8f, %8f, %e\n", rank, i, j, x[i], fn(x[i]), y[j], dfn(x[i]), dy[j], err[j]);
         //printf("%d %d %d %8f %10e\n",rank, i, j, x[i], err[j]);
+    }
+    for(j=min_max_count; j<DEGREE-1; j++){
+            local_min_max[j] = INT_MAX;
     }
     //TODO: Send this error vector to ROOT
     int st=0, *rcounts, *displs;
@@ -185,7 +188,17 @@ int main(int argc, char *argv[]) {
         std_dev = sqrt(std_dev/(double)NGRID);
         printf("\nErr_sum = %e, Err_avg = %e, std_dev= %e",err_sum, err_avg, std_dev);
     }
-
+    double * glo_min_max=NULL;
+    if(rank == ROOT) {
+        glo_min_max = (double *)malloc(((DEGREE-1)*size) * sizeof(double));
+    }
+    st = MPI_Gather(local_min_max, DEGREE-1, MPI_DOUBLE, glo_min_max, DEGREE-1, MPI_DOUBLE, ROOT, new_comm);
+    if (rank == ROOT) {
+        for(i=0; i< (DEGREE-1)*size; i++)
+            if(glo_min_max[i] != INT_MAX) {
+               printf("\n(%f, %f)",glo_min_max[i], fn(glo_min_max[i]));
+            }
+    }
     if (st != MPI_SUCCESS) {
         printf("\nError in MPI_GATHER %d\n",st);
         exit(0);
