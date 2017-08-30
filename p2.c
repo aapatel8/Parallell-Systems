@@ -81,9 +81,33 @@ double create_x_axis_grid_points(double *x) {
     return dx;
 }
 
+void print_error_data(char *filename, int np, double avgerr, double stdd, double *x, double *err, double *min_max_array)
+{
+  int   i;
+  FILE *fp = fopen(filename, "w");
+
+  fprintf(fp, "%e\n%e\n", avgerr, stdd);
+  
+  for(i = 0; i<DEGREE-1; i++)
+  {
+	if (min_max_array[i] != INT_MAX)
+		fprintf(fp, "(%f, %f)\n", min_max_array[i], fn(min_max_array[i]));
+	else
+		fprintf(fp, "(UNDEF, UNDEF)\n");
+  }
+  
+  for(i = 0; i < np; i++)
+  {
+	fprintf(fp, "%f %e \n", x[i], err[i]);
+  }
+  fclose(fp);
+}
+
+
 void blocking_and_manual_reduce(int rank, int size, MPI_Comm new_comm) {
     int i, j, succ, pred;
     double x[NGRID +2], dx;
+    MPI_Status status;
     int n_ngrid;  // Number of grid points allocated to the process.
     int start_x, end_x; // start and end index for x values for this process.
     int block_size = NGRID / size;  // Number of grid points in a block
@@ -201,6 +225,8 @@ void blocking_and_manual_reduce(int rank, int size, MPI_Comm new_comm) {
             if(glo_min_max[i] != INT_MAX) {
                if(VERBOSE)printf("\n(%f, %f)",glo_min_max[i], fn(glo_min_max[i]));
             }
+            
+        print_error_data("err.dat", NGRID, err_avg, std_dev, &x[1], glo_err, glo_min_max);
     }
     if(y) free(y);
     if(dy) free(dy);
