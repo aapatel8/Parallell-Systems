@@ -5,7 +5,7 @@
 #include "mpi.h"
 
 // The number of grid points
-#define NGRID 20
+#define NGRID 1000
 // The first and last grid point
 #define XI -1.0
 #define XF 1.5
@@ -80,28 +80,27 @@ int main(int argc, char *argv[]) {
 
     double  local_min_max[DEGREE-1];
     int min_max_count = 0;
-    // The x axis width of decomposed grid.
-    double step_size = (double)(XF - XI)/(double)NGRID; 
     double *y, *dy, *err;
-    double *glo_err= NULL;
-    //TODO: Create a different communicator
 
-    printf("\nRank= %d, size= %d, start_x= %d, end_x= %d, n_ngrid=%d, step_size=%f ", rank, size, start_x, end_x, n_ngrid, step_size);
-    
+    double *glo_err= NULL;
+    printf("\nRank= %d, size= %d, start_x= %d, end_x= %d, n_ngrid=%d, ", rank, size, start_x, end_x, n_ngrid );
+   
+    // Create the grid points on X axis
     for (i=1; i <=NGRID ; i++) {
         x[i] = XI + (XF - XI) * (double)(i-1)/(double)(NGRID-1);
     }
-
     dx = x[2] - x[1];
     x[0] = x[1] - dx;  
     x[NGRID+1] = x[NGRID] + dx; 
+
     printf("succ= %d, pred= %d,  dx= %f",succ, pred, dx);
     y = (double *) malloc((n_ngrid +2) * sizeof(double));
     dy = (double *) malloc(n_ngrid * sizeof(double));
     err = (double *) malloc(n_ngrid * sizeof(double));
-    glo_err = (double *)malloc((NGRID +2) * sizeof(double));
-    if (glo_err == NULL) {
+   
+    if (y == NULL || dy == NULL || err == NULL) {
         printf("\n Memory Allocation Failed");
+        exit(-1);
     }
     for (i=start_x, j=1; i< end_x; i++, j++) {
         y[j] = fn(x[i]);
@@ -113,6 +112,7 @@ int main(int argc, char *argv[]) {
     //
 
     if(rank == ROOT) { // Root has no predecessor
+        glo_err = (double *)malloc(NGRID  * sizeof(double));
         // ROOT sends to rank 1, with tag SEND_TO_SUCC and receives with tag RECV_FROM_SUCC 
         y[0] = fn(x[0]-dx);
         MPI_Send(&y[n_ngrid], 1, MPI_DOUBLE, succ, SEND_TO_SUCC, new_comm);
@@ -148,39 +148,45 @@ int main(int argc, char *argv[]) {
     }
     printf("\n%d No deadlock occured\n", rank); 
     
-    for(i=start_x, j=0; i < end_x; i++, j++) {
+    for(i=start_x, j=0; j < n_ngrid; i++, j++) {
         err[j] = fabs(dy[j] - dfn(x[i]));
+        
         if(fabs(dy[j]) < EPSILON) {
             local_min_max[min_max_count++] = x[i];
            printf("\nMIN/MAX found at x= %f , dy= %f ",x[i], dy[j]);
         }
-        printf("%d %d %d %8f, %8f, %8f, %8f, %8f, %e\n", rank, i, j, x[i], fn(x[i]), y[j], dfn(x[i]), dy[j], err[j]);
+        //printf("%d %d %d %8f, %8f, %8f, %8f, %8f, %e\n", rank, i, j, x[i], fn(x[i]), y[j], dfn(x[i]), dy[j], err[j]);
         //printf("%d %d %d %8f %10e\n",rank, i, j, x[i], err[j]);
     }
     //TODO: Send this error vector to ROOT
-    int st=0;
-    for(i=0; i< n_ngrid; i++) {
-        //printf(" err[%d] = %e ",i, err[i]);
+    int st=0, *rcounts, *displs;
+    rcounts = (int *)malloc(size * sizeof(int));
+    displs = (int *)malloc(size * sizeof(int));
+
+    for(i=0; i< size-1; i++) {
+        rcounts[i] =  block_size;
+        displs[i] = i * block_size;
     }
-    //st = MPI_Gather(err, n_ngrid, MPI_DOUBLE, glo_err, NGRID+2, MPI_DOUBLE, ROOT, new_comm);
-    MPI_Barrier(new_comm);
-    for(i=0; i< NGRID; i++) {
-        //printf("  %d  ",i);
-        if (fabs(glo_err[i]) < EPSILON)
-            ;
-            //printf("\nMIM/MAXXX at x= %f, dy= %f", x[i], glo_err[i]);
+    rcounts[size-1] = block_size + (NGRID % size);
+    displs[size-1] = (size-1)*block_size;
+
+    st = MPI_Gatherv(err, n_ngrid , MPI_DOUBLE, glo_err, rcounts, displs, MPI_DOUBLE, ROOT, new_comm);
+    if (rank == ROOT)
+     {
+        for(i=0; i< NGRID; i++) {
+             printf("\ni=%d , x= %f, err= %e", i, x[i], glo_err[i]);
+        }
     }
+
     if (st == MPI_SUCCESS) {
         printf("\nResult of Gather %d",st);
     }else printf("\nError in MPI_GATHER %d\n",st);
     printf("\n%d %d %d %d %d",MPI_SUCCESS, MPI_ERR_COMM, MPI_ERR_COUNT, MPI_ERR_TYPE, MPI_ERR_BUFFER);
     MPI_Finalize();
     
-    if (y)
-        free(y);
-    if (dy)
-        free(dy);
-    if (err)
-        free(err);
+    if(y) free(y);
+    if(dy) free(dy);
+    if(err) free(err);
+    if(glo_err) free(glo_err);
     return 0;
 }
