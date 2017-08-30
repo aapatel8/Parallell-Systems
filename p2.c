@@ -171,17 +171,26 @@ int main(int argc, char *argv[]) {
     displs[size-1] = (size-1)*block_size;
 
     st = MPI_Gatherv(err, n_ngrid , MPI_DOUBLE, glo_err, rcounts, displs, MPI_DOUBLE, ROOT, new_comm);
+    double err_sum, std_dev, err_avg;
     if (rank == ROOT)
-     {
-        for(i=0; i< NGRID; i++) {
-             printf("\ni=%d , x= %f, err= %e", i, x[i], glo_err[i]);
+    {   err_sum = std_dev = 0;
+        for (i=0; i< NGRID; i++) {
+             //printf("\ni=%d , x= %f, err= %e", i, x[i], glo_err[i]);
+             err_sum += glo_err[i];
         }
+        err_avg = err_sum / (double)NGRID;
+        for (i=0; i< NGRID; i++) {
+            std_dev += pow(glo_err[i] - err_avg, 2);
+        }
+        std_dev = sqrt(std_dev/(double)NGRID);
+        printf("\nErr_sum = %e, Err_avg = %e, std_dev= %e",err_sum, err_avg, std_dev);
     }
 
-    if (st == MPI_SUCCESS) {
-        printf("\nResult of Gather %d",st);
-    }else printf("\nError in MPI_GATHER %d\n",st);
-    printf("\n%d %d %d %d %d",MPI_SUCCESS, MPI_ERR_COMM, MPI_ERR_COUNT, MPI_ERR_TYPE, MPI_ERR_BUFFER);
+    if (st != MPI_SUCCESS) {
+        printf("\nError in MPI_GATHER %d\n",st);
+        exit(0);
+    }
+    
     MPI_Finalize();
     
     if(y) free(y);
