@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include "mpi.h"
 #include <stdio.h>
-#define NPROCS 8
+#define NGRIDS 8
 
 int main(int argc, char *argv[])  {
     int i, j, rank, size, succ, pred;
@@ -32,6 +32,19 @@ int main(int argc, char *argv[])  {
     succ = (rank+1) % size;
     pred = (rank-1 + size) % size;
 
+
+    int gsize,sendarray[4], *rbuf;
+    if (new_rank == 0) {
+        rbuf = (int*) malloc(4*new_size* sizeof(int));
+
+    }
+    for(i=0; i< 4; i++)
+        sendarray[i] = i * rank;
+    MPI_Gather(sendarray, 4,  MPI_INT, rbuf, 4, MPI_INT, 0, new_comm);
+    if (new_rank==0) {
+        for(i=0; i< new_size * 4; i++)
+           printf("\n %d ",rbuf[i]);
+    }
     MPI_Finalize();
     return 0;
 }
