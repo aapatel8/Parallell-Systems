@@ -66,6 +66,10 @@ void get_x_axis_limits(int rank, int size, int *n_ngrid, int *start_x, int *end_
     }
     *succ = (rank+1) % size;
     *pred = (rank-1 + size) % size;
+    if(VERBOSE) printf("\nRank= %d, size= %d, start_x= %d, end_x= %d, "
+             "n_ngrid=%d, succ= %d, pred= %d",rank, size, 
+              start_x, end_x, n_ngrid,succ, pred);
+
 }
 
 double create_x_axis_grid_points(double *x) {
@@ -115,6 +119,46 @@ void calculate_y_axis_values(double *x, double *y, double *dy, double *err, int 
     for (i=start_x, j=1; i< end_x; i++, j++) {
         y[j] = fn(x[i]);
     }
+}
+
+void non_blocking_transfer_boundary_valuesint rank, int size, int n_ngrid, 
+                        int pred, int succ, double *x, double *y, double *dy, 
+                        MPI_Comm new_comm) {
+    int i, j;
+    double dx = x[2]-x[1];
+    
+    MPI_Request *reqs = NULL; 
+    MPI_Status *stats = NULL;
+    
+    if (rank == ROOT) {
+        y[0] = fn(x[0]-dx);
+        reqs = (MPI_Request *) malloc(2*sizeof(MPI_Request));
+        stats = (MPI_Status *) malloc(2*sizeof(MPI_Status));
+        MPI_Irecv(&y[n_ngrid+1], 1, MPI_DOUBLE, succ, RECV_FROM_SUCC, new_comm, &reqs[0]);
+        MPI_Isend(&y[n_ngrid], 1, MPI_DOUBLE, succ, SEND_TO_SUCC, new_comm, &reqs[1]);
+        MPI_Waitall(2, reqs, stats);
+    } else if (rank == size-1) {
+        y[n_ngrid+1] = fn(x[NGRID]);
+        reqs = (MPI_Request *) malloc(2*sizeof(MPI_Request));
+        stats = (MPI_Status *) malloc(2*sizeof(MPI_Status));
+        MPI_Irecv(&y[0], 1, MPI_DOUBLE, pred, RECV_FROM_PRED, new_comm, &recv1);
+        MPI_Isend(&y[1], 1, MPI_DOUBLE, pred, SEND_TO_PRED, new_comm, &send1);
+        MPI_Waitall(2, reqs, stats);
+    } else {
+        reqs = (MPI_Request *) malloc(4*sizeof(MPI_Request));
+        stats = (MPI_Status *) malloc(4*sizeof(MPI_Status));
+        MPI_Irecv(&y[0], 1, MPI_DOUBLE, pred, RECV_FROM_PRED, new_comm, &recv1);
+        MPI_Irecv(&y[n_ngrid+1], 1, MPI_DOUBLE, succ, RECV_FROM_SUCC, new_comm, &recv2);
+
+        MPI_Isend(&y[n_ngrid], 1, MPI_DOUBLE, succ, SEND_TO_SUCC, new_comm, &send1); 
+        MPI_Isend(&y[1], 1, MPI_DOUBLE, pred, SEND_TO_PRED, new_comm, &send2);
+        MPI_Waitall(4, reqs, stats);
+        }
+    for(j=1; j<=n_ngrid; j++) {
+        dy[j-1] = (y[j+1] - y[j-1]) / (2*dx);
+    }
+    if (reqs) free(reqs);
+    if (stats) free(stats);
 }
 
 void blocking_transfer_boundary_values(int rank, int size, int n_ngrid, 
@@ -168,7 +212,7 @@ void calculate_finite_differencing_error(int start_x, int n_ngrid, double *err, 
         
         if(fabs(dy[j]) < EPSILON) {
             local_min_max[min_max_count++] = x[i];
-            //if(VERBOSE) printf("\nProcess %d found MIN/MAX at x= %f , dy= %f ",rank, x[i], dy[j]);
+            if(VERBOSE) printf("\nProcess found MIN/MAX at x= %f , dy= %f ", x[i], dy[j]);
         }
     }
     for(j=min_max_count; j<DEGREE-1; j++){
@@ -208,6 +252,44 @@ void calculate_std_deviation(double *std_dev, double *err_avg, double *glo_err) 
     *std_dev = sqrt(*std_dev/(double)NGRID);
 }
 
+void non_blocking_and_manual_reduce(int rank, int size, MPI_Comm new_comm) {
+    int i, j, succ, pred;
+    double x[NGRID +2], dx;
+    int n_ngrid;  // Number of grid points allocated to the process.
+    int start_x, end_x; // start and end index for x values for this process.
+
+    double  local_min_max[DEGREE-1];
+    double *y=NULL, *dy=NULL, *err=NULL, *glo_err= NULL;
+    double std_dev, err_avg, *glo_min_max=NULL;
+    
+    get_x_axis_limits(rank, size, &n_ngrid, &start_x, &end_x, &succ, &pred);
+    dx = create_x_axis_grid_points(x);    
+
+    y = (double *) malloc((n_ngrid +2) * sizeof(double));
+    dy = (double *) malloc(n_ngrid * sizeof(double));
+    err = (double *) malloc(n_ngrid * sizeof(double));
+   
+    calculate_y_axis_values(x, y, dy, err, n_ngrid, start_x, end_x);
+    non_blocking_transfer_boundary_values(rank, size, n_ngrid, pred, succ, x, y, dy, new_comm);
+    if (VERBOSE) printf("\n Boundary values transfer success\n");
+    calculate_finite_differencing_error(start_x, n_ngrid, err, dy, x, local_min_max);
+    if (rank == ROOT){
+        glo_min_max = (double *)malloc(((DEGREE-1)*size) * sizeof(double));
+        glo_err = (double *)malloc(NGRID  * sizeof(double));
+    }
+    MPI_Gather(local_min_max, DEGREE-1, MPI_DOUBLE, glo_min_max, DEGREE-1, MPI_DOUBLE, ROOT, new_comm);
+    gather_err_vector(rank, size, n_ngrid, err, glo_err, new_comm);
+    if (rank == ROOT) {
+        calculate_std_deviation(&std_dev, &err_avg, glo_err);
+        print_error_data("err.dat", NGRID, err_avg, std_dev, &x[1], glo_err, glo_min_max, (DEGREE-1)*size);
+    }
+    if(y) free(y);
+    if(dy) free(dy);
+    if(err) free(err);
+    if(glo_err) free(glo_err);
+    if(glo_min_max) free(glo_min_max);
+}
+
 void blocking_and_manual_reduce(int rank, int size, MPI_Comm new_comm) {
     int i, j, succ, pred;
     double x[NGRID +2], dx;
@@ -219,11 +301,7 @@ void blocking_and_manual_reduce(int rank, int size, MPI_Comm new_comm) {
     double std_dev, err_avg, *glo_min_max=NULL;
     
     get_x_axis_limits(rank, size, &n_ngrid, &start_x, &end_x, &succ, &pred);
-    dx = create_x_axis_grid_points(x);
-    if(VERBOSE) printf("\nRank= %d, size= %d, start_x= %d, end_x= %d, "
-                 "n_ngrid=%d, succ= %d, pred= %d,  dx= %f ",rank, size, 
-                  start_x, end_x, n_ngrid,succ, pred, dx);
-    
+    dx = create_x_axis_grid_points(x);    
 
     y = (double *) malloc((n_ngrid +2) * sizeof(double));
     dy = (double *) malloc(n_ngrid * sizeof(double));
@@ -259,9 +337,6 @@ void blocking_and_manual_reduce(int rank, int size, MPI_Comm new_comm) {
 void blocking_and_MPI_reduce() {
 }
 
-void non_blocking_and_manual_reduce() {
-}
-
 void non_blocking_and_MPI_reduce() {
 }
 
@@ -273,8 +348,8 @@ int main(int argc, char *argv[]) {
 
     MPI_Init(&argc, &argv);
     create_new_communicator(&rank, &size, &new_comm);
-    blocking_and_manual_reduce(rank, size, new_comm);
-   
+    //blocking_and_manual_reduce(rank, size, new_comm);
+    non_blocking_and_manual_reduce(rank, size, new_comm);
     MPI_Finalize();
     return 0;
 }
