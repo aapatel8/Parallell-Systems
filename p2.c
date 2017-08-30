@@ -31,16 +31,19 @@ double dfn(double x) {
 void create_new_communicator(int *rank, int *size, MPI_Comm *new_comm) {
     MPI_Group new_group, orig_group;
     MPI_Comm_size(MPI_COMM_WORLD, size);
-    int *new_ranks;
-    new_ranks = (int*)malloc(size * sizeof(int));
-    for (i=0; i< size; i++)
+    int *new_ranks, i;
+    new_ranks = (int*)malloc((*size) * sizeof(int));
+    for (i=0; i< *size; i++) {
         new_ranks[i] = i;
     }
     MPI_Comm_group(MPI_COMM_WORLD, &orig_group);
-    MPI_Group_incl(orig_group, size, new_ranks, &new_group);
-    MPI_Comm_create(MPI_COMM_WORLD, new_group, &new_comm);
+    MPI_Group_incl(orig_group, *size, new_ranks, &new_group);
+    MPI_Comm_create(MPI_COMM_WORLD, new_group, new_comm);
 
-    MPI_Comm_rank(new_comm, &rank);
+    MPI_Comm_rank(*new_comm, rank);
+    MPI_Comm_size(*new_comm, size);
+    if (new_ranks)
+        free(new_ranks);
 
 }
 
@@ -159,7 +162,7 @@ int main(int argc, char *argv[]) {
     for(i=0; i< n_ngrid; i++) {
         //printf(" err[%d] = %e ",i, err[i]);
     }
-    st = MPI_Gather(err, n_ngrid, MPI_DOUBLE, glo_err, NGRID+2, MPI_DOUBLE, ROOT, new_comm);
+    //st = MPI_Gather(err, n_ngrid, MPI_DOUBLE, glo_err, NGRID+2, MPI_DOUBLE, ROOT, new_comm);
     MPI_Barrier(new_comm);
     for(i=0; i< NGRID; i++) {
         //printf("  %d  ",i);
@@ -173,8 +176,6 @@ int main(int argc, char *argv[]) {
     printf("\n%d %d %d %d %d",MPI_SUCCESS, MPI_ERR_COMM, MPI_ERR_COUNT, MPI_ERR_TYPE, MPI_ERR_BUFFER);
     MPI_Finalize();
     
-    if (new_ranks)
-        free(new_ranks);
     if (y)
         free(y);
     if (dy)
