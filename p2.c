@@ -89,11 +89,14 @@ void print_error_data(char *filename, int np, double avgerr, double stdd,
   FILE *fp = fopen(filename, "w");
 
   fprintf(fp, "%e\n%e\n", avgerr, stdd);
-  
+  if(VERBOSE) printf("\nErr_avg = %e, std_dev= %e", err_avg, std_dev);
+
   for(i = 0; i<min_max_len; i++)
   {
-	if (min_max_array[i] != INT_MAX)
+	if (min_max_array[i] != INT_MAX) {
 		fprintf(fp, "(%f, %f)\n", min_max_array[i], fn(min_max_array[i]));
+        if(VERBOSE)printf("\n(%f, %f)",glo_min_max[i], fn(glo_min_max[i]));
+    }
   }
   
   for(i = 0; i < np; i++)
@@ -103,27 +106,8 @@ void print_error_data(char *filename, int np, double avgerr, double stdd,
   fclose(fp);
 }
 
-
-void blocking_and_manual_reduce(int rank, int size, MPI_Comm new_comm) {
-    int i, j, succ, pred;
-    double x[NGRID +2], dx;
-    MPI_Status status;
-    int n_ngrid;  // Number of grid points allocated to the process.
-    int start_x, end_x; // start and end index for x values for this process.
-    int block_size = NGRID / size;  // Number of grid points in a block
-    
-    get_x_axis_limits(rank, size, &n_ngrid, &start_x, &end_x, &succ, &pred);
-    dx = create_x_axis_grid_points(x);
-    if(VERBOSE) printf("\nRank= %d, size= %d, start_x= %d, end_x= %d, "
-                 "n_ngrid=%d, succ= %d, pred= %d,  dx= %f ",rank, size, 
-                  start_x, end_x, n_ngrid,succ, pred, dx);
-    
-    double  local_min_max[DEGREE-1];
-    int min_max_count = 0;
-    double *y=NULL, *dy=NULL, *err=NULL, *glo_err= NULL;
-    double err_sum, std_dev, err_avg, *glo_min_max=NULL;
-
-
+/* The calling function should call free on y, dy and err buffers */ 
+void calculate_y_axis_values(double *x, double *y, double *dy, double *err, int n_ngrid, int start_x, int end_x) {
     y = (double *) malloc((n_ngrid +2) * sizeof(double));
     dy = (double *) malloc(n_ngrid * sizeof(double));
     err = (double *) malloc(n_ngrid * sizeof(double));
@@ -132,34 +116,34 @@ void blocking_and_manual_reduce(int rank, int size, MPI_Comm new_comm) {
         printf("\n Memory Allocation Failed");
         exit(-1);
     }
+    int i, j;
     for (i=start_x, j=1; i< end_x; i++, j++) {
         y[j] = fn(x[i]);
     }
-    
+}
+
+void blocking_transfer_boundary_values(int rank, int size, int n_ngrid, 
+                        int pred, int succ, double *x, double *y, double *dy, 
+                        MPI_Comm new_comm) {
+    int i, j;
+    double dx = x[2] - x[1];
+    MPI_Status status;
     /*
     send y[1] to predecessor
     send y[n_ngrid] to successor
     Receive in y[0] from predeessor
     Receive in y[n_ngrid+1] from successor.
     */
-    if(rank == ROOT) { // Root has no predecessor
-        glo_err = (double *)malloc(NGRID  * sizeof(double));
-        glo_min_max = (double *)malloc(((DEGREE-1)*size) * sizeof(double));
 
+    if(rank == ROOT) { // Root has no predecessor
         // ROOT sends to rank 1, with tag SEND_TO_SUCC and receives with tag RECV_FROM_SUCC 
         y[0] = fn(x[0]-dx);
         MPI_Send(&y[n_ngrid], 1, MPI_DOUBLE, succ, SEND_TO_SUCC, new_comm);
         MPI_Recv(&y[n_ngrid+1], 1, MPI_DOUBLE, succ, RECV_FROM_SUCC, new_comm, &status);
-        for(j=1; j <= n_ngrid; j++) {  // y[0] is irrelevant in this case
-            dy[j-1] = (y[j+1] - y[j-1]) / (2 * dx);
-        }
     } else if (rank == size-1) { // Last process has no successor
         y[n_ngrid+1] = fn(x[NGRID]); 
         MPI_Recv(&y[0], 1, MPI_DOUBLE, pred, RECV_FROM_PRED, new_comm, &status);
         MPI_Send(&y[1], 1, MPI_DOUBLE, pred, SEND_TO_PRED, new_comm);
-        for(j=1; j<= n_ngrid; j++) {  // y[n_ngrid+1] is irrelevant in this case
-            dy[j-1] = (y[j+1] - y[j-1]) / (2 * dx);
-        }
     } else {
         if (rank %2 != 0) { // Odd ranked processes
             MPI_Send(&y[n_ngrid], 1, MPI_DOUBLE, succ, SEND_TO_SUCC, new_comm);
@@ -175,12 +159,15 @@ void blocking_and_manual_reduce(int rank, int size, MPI_Comm new_comm) {
             MPI_Recv(&y[n_ngrid+1], 1, MPI_DOUBLE, succ, RECV_FROM_SUCC, new_comm, &status);
             MPI_Send(&y[1], 1, MPI_DOUBLE, pred, SEND_TO_PRED, new_comm);
         }
-        for(j=1; j<=n_ngrid; j++) {
-            dy[j-1] = (y[j+1] - y[j-1]) / (2*dx);
-        }
     }
-    
-    if(VERBOSE) printf("\n%d No deadlock occured\n", rank); 
+    for(j=1; j<=n_ngrid; j++) {
+        dy[j-1] = (y[j+1] - y[j-1]) / (2*dx);
+    }
+}
+
+
+void calculate_finite_differencing_error(int start_x, int n_ngrid, float *err, float *dy, float *x, float *local_min_max) {
+    int min_max_count = 0, i, j;
     for(i=start_x, j=0; j < n_ngrid; i++, j++) {
         err[j] = fabs(dy[j] - dfn(x[i]));
         
@@ -189,11 +176,13 @@ void blocking_and_manual_reduce(int rank, int size, MPI_Comm new_comm) {
             if(VERBOSE) printf("\nProcess %d found MIN/MAX at x= %f , dy= %f ",rank, x[i], dy[j]);
         }
     }
-    
     for(j=min_max_count; j<DEGREE-1; j++){
-            local_min_max[j] = INT_MAX;
+        local_min_max[j] = INT_MAX;
     }
+}
 
+void gather_err_vector(int rank, int size, int n_ngrid, float *err, float *glo_err, MPI_Comm new_comm) {
+    int block_size = NGRID / size;  // Number of grid points in a block
     int *rcounts=NULL, *displs=NULL;
     rcounts = (int *)malloc(size * sizeof(int));
     displs = (int *)malloc(size * sizeof(int));
@@ -204,36 +193,67 @@ void blocking_and_manual_reduce(int rank, int size, MPI_Comm new_comm) {
     }
     rcounts[size-1] = block_size + (NGRID % size);
     displs[size-1] = (size-1)*block_size;
-
+    if (rank == ROOT)
+        glo_err = (double *)malloc(NGRID  * sizeof(double));
+    }
     MPI_Gatherv(err, n_ngrid , MPI_DOUBLE, glo_err, rcounts, displs, MPI_DOUBLE, ROOT, new_comm);
+    
+    if(displs) free(displs);
+    if(rcounts) free(rcounts);
+}
+
+void calculate_std_deviation(double *std_dev, double *err_avg, double *glo_err) {
+    int i;
+    double err_sum;
+    err_sum = *std_dev = 0;
+    for (i=0; i< NGRID; i++) {
+        err_sum += glo_err[i];
+    }
+    *err_avg = err_sum / (double)NGRID;
+    for (i=0; i< NGRID; i++) {
+        *std_dev += pow(glo_err[i] - *err_avg, 2);
+    }
+    *std_dev = sqrt(*std_dev/(double)NGRID);
+}
+
+void blocking_and_manual_reduce(int rank, int size, MPI_Comm new_comm) {
+    int i, j, succ, pred;
+    double x[NGRID +2], dx;
+    int n_ngrid;  // Number of grid points allocated to the process.
+    int start_x, end_x; // start and end index for x values for this process.
+
+    double  local_min_max[DEGREE-1];
+    double *y=NULL, *dy=NULL, *err=NULL, *glo_err= NULL;
+    double std_dev, err_avg, *glo_min_max=NULL;
+    
+    get_x_axis_limits(rank, size, &n_ngrid, &start_x, &end_x, &succ, &pred);
+    dx = create_x_axis_grid_points(x);
+    if(VERBOSE) printf("\nRank= %d, size= %d, start_x= %d, end_x= %d, "
+                 "n_ngrid=%d, succ= %d, pred= %d,  dx= %f ",rank, size, 
+                  start_x, end_x, n_ngrid,succ, pred, dx);
+    
+
+    calculate_y_axis_values(x, y, dy, err, n_ngrid, start_x, end_x);
+    blocking_transfer_boundary_values(rank, size, n_ngrid, pred, succ, x, y, dy, new_comm);
+    if(VERBOSE) printf("\n%d No deadlock occured\n", rank); 
+    calculate_finite_differencing_error(start_x, n_ngrid, err, dy, x, local_min_max);
+    
+    if (rank == ROOT)
+        glo_min_max = (double *)malloc(((DEGREE-1)*size) * sizeof(double));
+    }
+    
     MPI_Gather(local_min_max, DEGREE-1, MPI_DOUBLE, glo_min_max, DEGREE-1, MPI_DOUBLE, ROOT, new_comm);
 
+    gather_err_vector(rank, size, n_ngrid, err, glo_err, new_comm);
+
     if (rank == ROOT) {
-        err_sum = std_dev = 0;
-        for (i=0; i< NGRID; i++) {
-             if(DEBUG) printf("\ni=%d , x= %f, err= %e", i, x[i], glo_err[i]);
-             err_sum += glo_err[i];
-        }
-        err_avg = err_sum / (double)NGRID;
-        for (i=0; i< NGRID; i++) {
-            std_dev += pow(glo_err[i] - err_avg, 2);
-        }
-        std_dev = sqrt(std_dev/(double)NGRID);
-        if(VERBOSE) printf("\nErr_sum = %e, Err_avg = %e, std_dev= %e",err_sum, err_avg, std_dev);
-    
-        for(i=0; i< (DEGREE-1)*size; i++)
-            if(glo_min_max[i] != INT_MAX) {
-               if(VERBOSE)printf("\n(%f, %f)",glo_min_max[i], fn(glo_min_max[i]));
-            }
-            
+        calculate_std_deviation(&std_dev, &err_avg, glo_err);
         print_error_data("err.dat", NGRID, err_avg, std_dev, &x[1], glo_err, glo_min_max, (DEGREE-1)*size);
     }
     if(y) free(y);
     if(dy) free(dy);
     if(err) free(err);
-    if(displs) free(displs);
     if(glo_err) free(glo_err);
-    if(rcounts) free(rcounts);
     if(glo_min_max) free(glo_min_max);
 }
 
