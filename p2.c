@@ -17,6 +17,7 @@
 #define SEND_TO_PRED 0
 #define RECV_FROM_SUCC 0
 #define ROOT 0
+
 double fn(double x) {
     return pow(x,3) - pow(x,2) - x + 1;
     //return pow(x,2);
@@ -30,12 +31,25 @@ double dfn(double x) {
 int main(int argc, char *argv[]) {
     // loop index, process identity, number of processes.
     int i, j, rank, size, succ, pred;
+    int *new_ranks;
+
+    MPI_Group orig_group, new_group;
+    MPI_Comm  new_comm;
+    MPI_Status status;
 
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     
-    MPI_Status status;
+    new_ranks = (int*)malloc(size * sizeof(int));
+    for (i=0; i< size; i++)
+        new_ranks[i] = i;
+
+    MPI_Comm_group(MPI_COMM_WORLD, &orig_group);
+    MPI_Group_incl(orig_group, size, new_ranks, &new_group);
+    MPI_Comm_create(MPI_COMM_WORLD, new_group, &new_comm);
+
+    MPI_Comm_rank(new_comm, &rank);
+
     succ = (rank+1) % size;
     pred = (rank-1 + size) % size;
     // domain array and step size
@@ -94,32 +108,32 @@ int main(int argc, char *argv[]) {
     if(rank == ROOT) { // Root has no predecessor
         // ROOT sends to rank 1, with tag SEND_TO_SUCC and receives with tag RECV_FROM_SUCC 
         y[0] = fn(x[0]-dx);
-        MPI_Send(&y[n_ngrid], 1, MPI_DOUBLE, succ, SEND_TO_SUCC, MPI_COMM_WORLD);
-        MPI_Recv(&y[n_ngrid+1], 1, MPI_DOUBLE, succ, RECV_FROM_SUCC, MPI_COMM_WORLD, &status);
+        MPI_Send(&y[n_ngrid], 1, MPI_DOUBLE, succ, SEND_TO_SUCC, new_comm);
+        MPI_Recv(&y[n_ngrid+1], 1, MPI_DOUBLE, succ, RECV_FROM_SUCC, new_comm, &status);
         for(j=1; j <= n_ngrid; j++) {  // y[0] is irrelevant in this case
             dy[j-1] = (y[j+1] - y[j-1]) / (2 * dx);
         }
     } else if (rank == size-1) { // Last process has no successor
         y[n_ngrid+1] = fn(x[NGRID]); 
-        MPI_Recv(&y[0], 1, MPI_DOUBLE, pred, RECV_FROM_PRED, MPI_COMM_WORLD, &status);
-        MPI_Send(&y[1], 1, MPI_DOUBLE, pred, SEND_TO_PRED, MPI_COMM_WORLD);
+        MPI_Recv(&y[0], 1, MPI_DOUBLE, pred, RECV_FROM_PRED, new_comm, &status);
+        MPI_Send(&y[1], 1, MPI_DOUBLE, pred, SEND_TO_PRED, new_comm);
         for(j=1; j<= n_ngrid; j++) {  // y[n_ngrid+1] is irrelevant in this case
             dy[j-1] = (y[j+1] - y[j-1]) / (2 * dx);
         }
     } else {
         if (rank %2 != 0) { // Odd ranked processes
-            MPI_Send(&y[n_ngrid], 1, MPI_DOUBLE, succ, SEND_TO_SUCC, MPI_COMM_WORLD);
-            MPI_Recv(&y[0], 1, MPI_DOUBLE, pred, RECV_FROM_PRED, MPI_COMM_WORLD, &status);
+            MPI_Send(&y[n_ngrid], 1, MPI_DOUBLE, succ, SEND_TO_SUCC, new_comm);
+            MPI_Recv(&y[0], 1, MPI_DOUBLE, pred, RECV_FROM_PRED, new_comm, &status);
 
-            MPI_Send(&y[1], 1, MPI_DOUBLE, pred, SEND_TO_PRED, MPI_COMM_WORLD);
-            MPI_Recv(&y[n_ngrid+1], 1, MPI_DOUBLE, succ, RECV_FROM_SUCC, MPI_COMM_WORLD, &status);
+            MPI_Send(&y[1], 1, MPI_DOUBLE, pred, SEND_TO_PRED, new_comm);
+            MPI_Recv(&y[n_ngrid+1], 1, MPI_DOUBLE, succ, RECV_FROM_SUCC, new_comm, &status);
         } else { // Even ranked processes
         
-            MPI_Recv(&y[0], 1, MPI_DOUBLE, pred, RECV_FROM_PRED, MPI_COMM_WORLD, &status);
-            MPI_Send(&y[n_ngrid], 1, MPI_DOUBLE, succ, SEND_TO_SUCC, MPI_COMM_WORLD);
+            MPI_Recv(&y[0], 1, MPI_DOUBLE, pred, RECV_FROM_PRED, new_comm, &status);
+            MPI_Send(&y[n_ngrid], 1, MPI_DOUBLE, succ, SEND_TO_SUCC, new_comm);
 
-            MPI_Recv(&y[n_ngrid+1], 1, MPI_DOUBLE, succ, RECV_FROM_SUCC, MPI_COMM_WORLD, &status);
-            MPI_Send(&y[1], 1, MPI_DOUBLE, pred, SEND_TO_PRED, MPI_COMM_WORLD);
+            MPI_Recv(&y[n_ngrid+1], 1, MPI_DOUBLE, succ, RECV_FROM_SUCC, new_comm, &status);
+            MPI_Send(&y[1], 1, MPI_DOUBLE, pred, SEND_TO_PRED, new_comm);
         }
         for(j=1; j<=n_ngrid; j++) {
             dy[j-1] = (y[j+1] - y[j-1]) / (2*dx);
@@ -141,8 +155,8 @@ int main(int argc, char *argv[]) {
     for(i=0; i< n_ngrid; i++) {
         //printf(" err[%d] = %e ",i, err[i]);
     }
-    st = MPI_Gather(err, n_ngrid, MPI_DOUBLE, glo_err, NGRID+2, MPI_DOUBLE, ROOT, MPI_COMM_WORLD);
-    MPI_Barrier(MPI_COMM_WORLD);
+    st = MPI_Gather(err, n_ngrid, MPI_DOUBLE, glo_err, NGRID+2, MPI_DOUBLE, ROOT, new_comm);
+    MPI_Barrier(new_comm);
     for(i=0; i< NGRID; i++) {
         //printf("  %d  ",i);
         if (fabs(glo_err[i]) < EPSILON)
@@ -154,5 +168,14 @@ int main(int argc, char *argv[]) {
     }else printf("\nError in MPI_GATHER %d\n",st);
     printf("\n%d %d %d %d %d",MPI_SUCCESS, MPI_ERR_COMM, MPI_ERR_COUNT, MPI_ERR_TYPE, MPI_ERR_BUFFER);
     MPI_Finalize();
+    
+    if (new_ranks)
+        free(new_ranks);
+    if (y)
+        free(y);
+    if (dy)
+        free(dy);
+    if (err)
+        free(err);
     return 0;
 }
