@@ -5,7 +5,7 @@
 #include "mpi.h"
 
 // The number of grid points
-#define NGRID 1000
+#define NGRID 20
 // The first and last grid point
 #define XI -1.0
 #define XF 1.5
@@ -62,7 +62,7 @@ int main(int argc, char *argv[]) {
     // The x axis width of decomposed grid.
     double step_size = (double)(XF - XI)/(double)NGRID; 
     double *y, *dy, *err;
-
+    double *glo_err= NULL;
     //TODO: Create a different communicator
 
     printf("\nRank= %d, size= %d, start_x= %d, end_x= %d, n_ngrid=%d, step_size=%f ", rank, size, start_x, end_x, n_ngrid, step_size);
@@ -78,7 +78,10 @@ int main(int argc, char *argv[]) {
     y = (double *) malloc((n_ngrid +2) * sizeof(double));
     dy = (double *) malloc(n_ngrid * sizeof(double));
     err = (double *) malloc(n_ngrid * sizeof(double));
-
+    glo_err = (double *)malloc((NGRID +2) * sizeof(double));
+    if (glo_err == NULL) {
+        printf("\n Memory Allocation Failed");
+    }
     for (i=start_x, j=1; i< end_x; i++, j++) {
         y[j] = fn(x[i]);
     }
@@ -130,10 +133,26 @@ int main(int argc, char *argv[]) {
             local_min_max[min_max_count++] = x[i];
            printf("\nMIN/MAX found at x= %f , dy= %f ",x[i], dy[j]);
         }
-        //printf("%d %d %d %8f, %8f, %8f, %8f, %8f, %e\n", rank, i, j, x[i], fn(x[i]), y[j], dfn(x[i]), dy[j], err[j]);
+        printf("%d %d %d %8f, %8f, %8f, %8f, %8f, %e\n", rank, i, j, x[i], fn(x[i]), y[j], dfn(x[i]), dy[j], err[j]);
         //printf("%d %d %d %8f %10e\n",rank, i, j, x[i], err[j]);
     }
     //TODO: Send this error vector to ROOT
+    int st=0;
+    for(i=0; i< n_ngrid; i++) {
+        //printf(" err[%d] = %e ",i, err[i]);
+    }
+    st = MPI_Gather(err, n_ngrid, MPI_DOUBLE, glo_err, NGRID+2, MPI_DOUBLE, ROOT, MPI_COMM_WORLD);
+    MPI_Barrier(MPI_COMM_WORLD);
+    for(i=0; i< NGRID; i++) {
+        //printf("  %d  ",i);
+        if (fabs(glo_err[i]) < EPSILON)
+            ;
+            //printf("\nMIM/MAXXX at x= %f, dy= %f", x[i], glo_err[i]);
+    }
+    if (st == MPI_SUCCESS) {
+        printf("\nResult of Gather %d",st);
+    }else printf("\nError in MPI_GATHER %d\n",st);
+    printf("\n%d %d %d %d %d",MPI_SUCCESS, MPI_ERR_COMM, MPI_ERR_COUNT, MPI_ERR_TYPE, MPI_ERR_BUFFER);
     MPI_Finalize();
     return 0;
 }
