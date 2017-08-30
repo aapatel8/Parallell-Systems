@@ -89,13 +89,12 @@ void print_error_data(char *filename, int np, double avgerr, double stdd,
   FILE *fp = fopen(filename, "w");
 
   fprintf(fp, "%e\n%e\n", avgerr, stdd);
-  if(VERBOSE) printf("\nErr_avg = %e, std_dev= %e", err_avg, std_dev);
+  if(VERBOSE) printf("\nErr_avg = %e, std_dev= %e", avgerr, stdd);
 
   for(i = 0; i<min_max_len; i++)
   {
 	if (min_max_array[i] != INT_MAX) {
 		fprintf(fp, "(%f, %f)\n", min_max_array[i], fn(min_max_array[i]));
-        if(VERBOSE)printf("\n(%f, %f)",glo_min_max[i], fn(glo_min_max[i]));
     }
   }
   
@@ -108,10 +107,6 @@ void print_error_data(char *filename, int np, double avgerr, double stdd,
 
 /* The calling function should call free on y, dy and err buffers */ 
 void calculate_y_axis_values(double *x, double *y, double *dy, double *err, int n_ngrid, int start_x, int end_x) {
-    y = (double *) malloc((n_ngrid +2) * sizeof(double));
-    dy = (double *) malloc(n_ngrid * sizeof(double));
-    err = (double *) malloc(n_ngrid * sizeof(double));
-   
     if (y == NULL || dy == NULL || err == NULL) {
         printf("\n Memory Allocation Failed");
         exit(-1);
@@ -166,14 +161,14 @@ void blocking_transfer_boundary_values(int rank, int size, int n_ngrid,
 }
 
 
-void calculate_finite_differencing_error(int start_x, int n_ngrid, float *err, float *dy, float *x, float *local_min_max) {
+void calculate_finite_differencing_error(int start_x, int n_ngrid, double *err, double *dy, double *x, double *local_min_max) {
     int min_max_count = 0, i, j;
     for(i=start_x, j=0; j < n_ngrid; i++, j++) {
         err[j] = fabs(dy[j] - dfn(x[i]));
         
         if(fabs(dy[j]) < EPSILON) {
             local_min_max[min_max_count++] = x[i];
-            if(VERBOSE) printf("\nProcess %d found MIN/MAX at x= %f , dy= %f ",rank, x[i], dy[j]);
+            //if(VERBOSE) printf("\nProcess %d found MIN/MAX at x= %f , dy= %f ",rank, x[i], dy[j]);
         }
     }
     for(j=min_max_count; j<DEGREE-1; j++){
@@ -181,8 +176,8 @@ void calculate_finite_differencing_error(int start_x, int n_ngrid, float *err, f
     }
 }
 
-void gather_err_vector(int rank, int size, int n_ngrid, float *err, float *glo_err, MPI_Comm new_comm) {
-    int block_size = NGRID / size;  // Number of grid points in a block
+void gather_err_vector(int rank, int size, int n_ngrid, double *err, double *glo_err, MPI_Comm new_comm) {
+    int i, block_size = NGRID / size;  // Number of grid points in a block
     int *rcounts=NULL, *displs=NULL;
     rcounts = (int *)malloc(size * sizeof(int));
     displs = (int *)malloc(size * sizeof(int));
@@ -193,9 +188,6 @@ void gather_err_vector(int rank, int size, int n_ngrid, float *err, float *glo_e
     }
     rcounts[size-1] = block_size + (NGRID % size);
     displs[size-1] = (size-1)*block_size;
-    if (rank == ROOT)
-        glo_err = (double *)malloc(NGRID  * sizeof(double));
-    }
     MPI_Gatherv(err, n_ngrid , MPI_DOUBLE, glo_err, rcounts, displs, MPI_DOUBLE, ROOT, new_comm);
     
     if(displs) free(displs);
@@ -233,13 +225,20 @@ void blocking_and_manual_reduce(int rank, int size, MPI_Comm new_comm) {
                   start_x, end_x, n_ngrid,succ, pred, dx);
     
 
+    y = (double *) malloc((n_ngrid +2) * sizeof(double));
+    dy = (double *) malloc(n_ngrid * sizeof(double));
+    err = (double *) malloc(n_ngrid * sizeof(double));
+   
     calculate_y_axis_values(x, y, dy, err, n_ngrid, start_x, end_x);
+    printf("%d Check 1",rank);
     blocking_transfer_boundary_values(rank, size, n_ngrid, pred, succ, x, y, dy, new_comm);
+    printf("%d Check 2",rank);
     if(VERBOSE) printf("\n%d No deadlock occured\n", rank); 
     calculate_finite_differencing_error(start_x, n_ngrid, err, dy, x, local_min_max);
     
-    if (rank == ROOT)
+    if (rank == ROOT){
         glo_min_max = (double *)malloc(((DEGREE-1)*size) * sizeof(double));
+        glo_err = (double *)malloc(NGRID  * sizeof(double));
     }
     
     MPI_Gather(local_min_max, DEGREE-1, MPI_DOUBLE, glo_min_max, DEGREE-1, MPI_DOUBLE, ROOT, new_comm);
