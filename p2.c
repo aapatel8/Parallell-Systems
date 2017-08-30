@@ -28,28 +28,32 @@ double dfn(double x) {
     //return 2 * x;
 }
 
-int main(int argc, char *argv[]) {
-    // loop index, process identity, number of processes.
-    int i, j, rank, size, succ, pred;
+void create_new_communicator(int *rank, int *size, MPI_Comm *new_comm) {
+    MPI_Group new_group, orig_group;
+    MPI_Comm_size(MPI_COMM_WORLD, size);
     int *new_ranks;
-
-    MPI_Group orig_group, new_group;
-    MPI_Comm  new_comm;
-    MPI_Status status;
-
-    MPI_Init(&argc, &argv);
-    MPI_Comm_size(MPI_COMM_WORLD, &size);
-    
     new_ranks = (int*)malloc(size * sizeof(int));
     for (i=0; i< size; i++)
         new_ranks[i] = i;
-
+    }
     MPI_Comm_group(MPI_COMM_WORLD, &orig_group);
     MPI_Group_incl(orig_group, size, new_ranks, &new_group);
     MPI_Comm_create(MPI_COMM_WORLD, new_group, &new_comm);
 
     MPI_Comm_rank(new_comm, &rank);
 
+}
+
+int main(int argc, char *argv[]) {
+    // loop index, process identity, number of processes.
+    int i, j, rank, size, succ, pred;
+
+    MPI_Comm  new_comm;
+    MPI_Status status;
+
+    MPI_Init(&argc, &argv);
+    create_new_communicator(&rank, &size, &new_comm);
+    
     succ = (rank+1) % size;
     pred = (rank-1 + size) % size;
     // domain array and step size
