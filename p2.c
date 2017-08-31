@@ -399,7 +399,7 @@ void non_blocking_and_MPI_reduce(int rank, int size, MPI_Comm new_comm) {
         calculate_std_deviation(&std_dev, &err_avg, glo_err);
         if(DEBUG) printf("\nCalculated Standard deviation");
         //print_error_data("err2.dat", NGRID, err_avg, std_dev, &x[1], glo_err, glo_min_max, xlen);
-        print_error_data_dydx("err2.dat", NGRID, err_avg, std_dev, &x[1], glo_err, glo_dyxi, xlen);
+        print_error_data_dydx("err3.dat", NGRID, err_avg, std_dev, &x[1], glo_err, glo_dyxi, xlen);
         if(DEBUG) printf("\n Printed err value to file");
    }
     if(y) free(y);
