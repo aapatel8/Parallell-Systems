@@ -5,7 +5,7 @@
 #include "mpi.h"
 
 // The number of grid points
-#define NGRID 1000
+#define NGRID 1000 
 // The first and last grid point
 #define XI -1.0
 #define XF 1.5
@@ -18,7 +18,7 @@
 #define RECV_FROM_SUCC 0
 #define ROOT 0
 #define DEBUG 0
-#define VERBOSE 1
+#define VERBOSE 0
 
 double fn(double x) {
     return pow(x,3) - pow(x,2) - x + 1;
@@ -32,14 +32,14 @@ double dfn(double x) {
 
 void min_max(double *inbuf, double *outbuf, int *len, MPI_Datatype type) {
     int i, j=0;
-    double *temp = (double *)malloc(*len *sizeof(double));
+    double *temp = (double *)malloc((*len) *sizeof(double));
     for(i=0; i< *len; i++){
-        if (inbuf[i] < EPSILON) {
+        if (fabs(inbuf[i]) < EPSILON) {
             temp[j++] = inbuf[i];
             }
         }
     for(i=0; i< *len; i++) {
-        if (outbuf[i] < EPSILON) {
+        if (fabs(outbuf[i]) < EPSILON) {
             temp[j++] = outbuf[i];
             }
         }
@@ -343,18 +343,23 @@ void blocking_and_MPI_reduce(int rank, int size, MPI_Comm new_comm) {
     }
     
     MPI_Op_create((MPI_User_function*)min_max, 1, &my_op);
+    printf("\n%d, MPI OPeration created",rank);
     MPI_Reduce(dy, glo_min_max, xlen, MPI_DOUBLE, my_op, ROOT, new_comm);
+    printf("\n%d MPI_reduce Success", rank);
     gather_err_vector(rank, size, n_ngrid, err, glo_err, new_comm);
-
+    printf("\n%d Err vector gathered", rank);
     if (rank == ROOT) {
         calculate_std_deviation(&std_dev, &err_avg, glo_err);
+        printf("\nCalculated Standard deviation");
         print_error_data("err2.dat", NGRID, err_avg, std_dev, &x[1], glo_err, glo_min_max, xlen);
-    }
+        printf("\n Printed err value to file");
+   }
     if(y) free(y);
     if(dy) free(dy);
     if(err) free(err);
     if(glo_err) free(glo_err);
     if(glo_min_max) free(glo_min_max);
+    MPI_Op_free(&my_op);
 }
 
 
@@ -422,6 +427,11 @@ int main(int argc, char *argv[]) {
     non_blocking_and_manual_reduce(rank, size, new_comm);
     time2 = MPI_Wtime();
     printf("\nNon-blocking with Manual Reduce, rank= %d, duration = %e", rank, time2-time1);
+    MPI_Barrier(new_comm);
+    time1 = MPI_Wtime();
+    blocking_and_MPI_reduce(rank, size, new_comm);
+    time2 = MPI_Wtime();
+    printf("\nBLocking with MPI Reduce, rank= %d, duration= %e",rank, time2-time1);
     MPI_Finalize();
     return 0;
 }
