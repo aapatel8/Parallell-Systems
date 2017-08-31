@@ -3,48 +3,53 @@
 #include <stdio.h>
 #define NGRIDS 8
 
-int main(int argc, char *argv[])  {
-    int i, j, rank, size, succ, pred;
-    int new_rank, new_size;
+void  min_max(double *inbuf, double *outbuf, int *len, MPI_Datatype type){
+    int i=0;
+    for(i=0; i< *len; i++) {
+        if (inbuf[i] > 10)
+            outbuf[i] = inbuf[i];
+    }
+}
 
-    MPI_Group orig_group, new_group;
-    MPI_Comm  new_comm;
+int main(int argc, char *argv[])  {
+    int i, j, rank, size ;
+
     MPI_Status status;
 
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-    int *new_ranks;
-    new_ranks = (int*)malloc(size * sizeof(int));
-    for (i=0; i< size; i++)
-        new_ranks[i] = i;
+    int xlen = 8;
+    double *dy = (double *)malloc(xlen * sizeof(double));
 
-    MPI_Comm_group(MPI_COMM_WORLD, &orig_group);
-    MPI_Group_incl(orig_group, size, new_ranks, &new_group);
-    MPI_Comm_create(MPI_COMM_WORLD, new_group, &new_comm);
+    double *coll = NULL;
+    if (rank == 0)
+        coll = (double *)malloc(xlen * sizeof(double));
 
-    MPI_Comm_rank(new_comm, &new_rank);
-    MPI_Comm_size(new_comm, &new_size);
-
-    printf("\n rank = %d, size = %d, new rank= %d, size= %d",rank, size, new_rank, new_size);
-
-    succ = (rank+1) % size;
-    pred = (rank-1 + size) % size;
-
-
-    int gsize,sendarray[4], *rbuf;
-    if (new_rank == 0) {
-        rbuf = (int*) malloc(4*new_size* sizeof(int));
-
+    for(i=0; i<xlen; i++) {
+        //coll[i] = 1; 
+        
+        dy[i] = 2;
+    
     }
-    for(i=0; i< 4; i++)
-        sendarray[i] = i * rank;
-    MPI_Gather(sendarray, 4,  MPI_INT, rbuf, 4, MPI_INT, 0, new_comm);
-    if (new_rank==0) {
-        for(i=0; i< new_size * 4; i++)
-           printf("\n %d ",rbuf[i]);
+    /*if(rank == 2)
+        dy[4]= 55;
+    if (rank == 1)
+        dy[4] = 23;
+    */
+    dy[rank] = 99;
+    MPI_Op op;
+    MPI_Op_create((MPI_User_function*)min_max, 0, &op);
+    MPI_Reduce(dy, coll, xlen, MPI_DOUBLE, op, 0, MPI_COMM_WORLD);
+    
+    if(rank== 0) {
+        for(i=0; i< xlen; i++){
+            printf("\ncoll[%d]= %f, dy[%d]= %f",i, coll[i], i, dy[i]);
+            
+            }
     }
+
     MPI_Finalize();
     return 0;
 }
