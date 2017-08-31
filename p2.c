@@ -30,25 +30,33 @@ double dfn(double x) {
     //return 2 * x;
 }
 
-void min_max(double *inbuf, double *outbuf, int *len, MPI_Datatype type) {
+typedef struct {
+    double dy, xi;
+    } dy_x;
+
+void min_max(dy_x *inbuf, dy_x *outbuf, int *len, MPI_Datatype type) {
     int i, j=0;
-    double *temp = (double *)malloc((*len) *sizeof(double));
-    for(i=0; i< *len; i++){
-        if (fabs(inbuf[i]) < EPSILON) {
-            temp[j++] = inbuf[i];
-            }
+    dy_x *temp = (dy_x *) malloc((*len) *sizeof(dy_x));
+    for(i=0; i <*len; i++) {
+        if (fabs(inbuf[i].dy) < EPSILON) {
+            temp[j].dy = inbuf[i].dy;
+            temp[j++].xi = inbuf[i].xi;
         }
-    for(i=0; i< *len; i++) {
-        if (fabs(outbuf[i]) < EPSILON) {
-            temp[j++] = outbuf[i];
-            }
+    }
+    for(i = 0; i < *len; i++) {
+        if (fabs(outbuf[i].dy) < EPSILON) {
+            temp[j].dy = outbuf[i].dy;
+            temp[j++].xi = outbuf[i].xi;
         }
-    for(i=0; i< j; i++) {
-        outbuf[i] = temp[i];
-        }
-    for(;i<*len;i++) {
-        outbuf[i] = INT_MAX;
-        }
+    }
+    for(i=0; i < j; i++) {
+        outbuf[i].dy = temp[i].dy;
+        outbuf[i].xi = temp[i].xi;
+    }
+    for(; i< *len; i++) {
+        outbuf[i].dy = INT_MAX;
+        outbuf[i].xi = INT_MAX;
+    }
     if (temp) free(temp);
 }
 
@@ -131,6 +139,26 @@ void print_error_data(char *filename, int np, double avgerr, double stdd,
   fclose(fp);
 }
 
+void print_error_data_dydx(char *filename, int np, double avgerr, double stdd,
+                          double *x, double *err, dy_x * dydx_arr, int len) {
+    int i;
+    FILE *fp = fopen(filename, "w");
+    fprintf(fp, "%e\n%e\n", avgerr, stdd);
+    if (VERBOSE) printf("\nErr_avg = %e, std_dev= %e", avgerr, stdd);
+
+    for(i=0; i<len; i++)
+    {
+        if(dydx_arr[i].dy != INT_MAX) {
+            fprintf(fp, "(%f, %f)\n", dydx_arr[i].xi, fn(dydx_arr[i].xi));
+        }
+    }
+
+    for(i=0; i< np; i++)
+    {
+        fprintf(fp, "%f %e \n",x[i], err[i]);
+    }
+    fclose(fp);
+}
 /* The calling function should call free on y, dy and err buffers */ 
 void calculate_y_axis_values(double *x, double *y, int start_x, int end_x) {
     if (y == NULL) {
@@ -320,7 +348,8 @@ void blocking_and_MPI_reduce(int rank, int size, MPI_Comm new_comm) {
 
     double  local_min_max[DEGREE-1];
     double *y=NULL, *dy=NULL, *err=NULL, *glo_err= NULL;
-    double std_dev, err_avg, *glo_min_max=NULL;
+    double std_dev, err_avg; 
+    dy_x * dyxi = NULL, *glo_dyxi=NULL;
 
     MPI_Op my_op;
     
@@ -331,34 +360,58 @@ void blocking_and_MPI_reduce(int rank, int size, MPI_Comm new_comm) {
     y = (double *) malloc((n_ngrid +2) * sizeof(double));
     dy = (double *) malloc(xlen * sizeof(double));
     err = (double *) malloc(n_ngrid * sizeof(double));
+    dyxi = (dy_x*)malloc(xlen * sizeof(dy_x)); 
+
     calculate_y_axis_values(x, y, start_x, end_x);
     for(i=n_ngrid; i < xlen; i++)
         dy[i] = INT_MAX;
     blocking_transfer_boundary_values(rank, size, n_ngrid, pred, succ, x, y, dy, new_comm);
+    
+    // Fill in dy and xi values in dyxi
+    for(i=start_x, j=0; j< xlen; i++, j++) {
+        dyxi[j].dy = dy[j];
+        dyxi[j].xi = x[i];
+    }
     if(VERBOSE) printf("\n%d No deadlock occured\n", rank); 
     calculate_finite_differencing_error(start_x, n_ngrid, err, dy, x, local_min_max);
     if (rank == ROOT) {
-        glo_min_max = (double *) malloc(xlen * sizeof(double));
+        glo_dyxi = (dy_x*)malloc(xlen * sizeof(dy_x));
         glo_err = (double *) malloc(NGRID * sizeof(double));
     }
-    
-    MPI_Op_create((MPI_User_function*)min_max, 1, &my_op);
+    MPI_Datatype dydx_type, oldtype[1];
+    int blockcount[1];
+    MPI_Aint offset[1], extent;
+
+    offset[0] = 0;
+    oldtype[0] = MPI_DOUBLE;
+    blockcount[0] = 2;
+    //MPI_Type_extent(MPI_DOUBLE, &extent);
+
+    MPI_Type_struct(1, blockcount, offset, oldtype, &dydx_type);
+    MPI_Type_commit(&dydx_type);
+
+    MPI_Op_create((MPI_User_function*)min_max, 0, &my_op);
     printf("\n%d, MPI OPeration created",rank);
-    MPI_Reduce(dy, glo_min_max, xlen, MPI_DOUBLE, my_op, ROOT, new_comm);
+    MPI_Reduce(dyxi, glo_dyxi, xlen, dydx_type, my_op, ROOT, new_comm);
     printf("\n%d MPI_reduce Success", rank);
     gather_err_vector(rank, size, n_ngrid, err, glo_err, new_comm);
     printf("\n%d Err vector gathered", rank);
     if (rank == ROOT) {
         calculate_std_deviation(&std_dev, &err_avg, glo_err);
         printf("\nCalculated Standard deviation");
-        print_error_data("err2.dat", NGRID, err_avg, std_dev, &x[1], glo_err, glo_min_max, xlen);
+        //print_error_data("err2.dat", NGRID, err_avg, std_dev, &x[1], glo_err, glo_min_max, xlen);
+        print_error_data_dydx("err2.dat", NGRID, err_avg, std_dev, &x[1], glo_err, glo_dyxi, xlen);
+        for(i=0; i < xlen; i++)
+            if (glo_dyxi[i].dy != INT_MAX)
+                printf("\ndy= %f  xi= %f y= %f",glo_dyxi[i].dy, glo_dyxi[i].xi, fn(glo_dyxi[i].xi));
         printf("\n Printed err value to file");
    }
     if(y) free(y);
     if(dy) free(dy);
     if(err) free(err);
     if(glo_err) free(glo_err);
-    if(glo_min_max) free(glo_min_max);
+    if(dyxi) free(dyxi);
+    if(glo_dyxi) free(glo_dyxi);
     MPI_Op_free(&my_op);
 }
 
