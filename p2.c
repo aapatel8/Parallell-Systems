@@ -68,7 +68,7 @@ void get_x_axis_limits(int rank, int size, int *n_ngrid, int *start_x, int *end_
     *pred = (rank-1 + size) % size;
     if(VERBOSE) printf("\nRank= %d, size= %d, start_x= %d, end_x= %d, "
              "n_ngrid=%d, succ= %d, pred= %d",rank, size, 
-              start_x, end_x, n_ngrid,succ, pred);
+              *start_x, *end_x, *n_ngrid, *succ, *pred);
 
 }
 
@@ -308,9 +308,7 @@ void blocking_and_manual_reduce(int rank, int size, MPI_Comm new_comm) {
     err = (double *) malloc(n_ngrid * sizeof(double));
    
     calculate_y_axis_values(x, y, dy, err, n_ngrid, start_x, end_x);
-    printf("%d Check 1",rank);
     blocking_transfer_boundary_values(rank, size, n_ngrid, pred, succ, x, y, dy, new_comm);
-    printf("%d Check 2",rank);
     if(VERBOSE) printf("\n%d No deadlock occured\n", rank); 
     calculate_finite_differencing_error(start_x, n_ngrid, err, dy, x, local_min_max);
     
@@ -325,7 +323,7 @@ void blocking_and_manual_reduce(int rank, int size, MPI_Comm new_comm) {
 
     if (rank == ROOT) {
         calculate_std_deviation(&std_dev, &err_avg, glo_err);
-        print_error_data("err.dat", NGRID, err_avg, std_dev, &x[1], glo_err, glo_min_max, (DEGREE-1)*size);
+        print_error_data("err1.dat", NGRID, err_avg, std_dev, &x[1], glo_err, glo_min_max, (DEGREE-1)*size);
     }
     if(y) free(y);
     if(dy) free(dy);
@@ -345,11 +343,20 @@ int main(int argc, char *argv[]) {
 
     MPI_Comm  new_comm;
     MPI_Status status;
+    double time2=0, time1=0;
 
     MPI_Init(&argc, &argv);
     create_new_communicator(&rank, &size, &new_comm);
-    //blocking_and_manual_reduce(rank, size, new_comm);
+    
+    time1 = MPI_Wtime();
+    blocking_and_manual_reduce(rank, size, new_comm);
+    time2 = MPI_Wtime();
+    printf("\nBlocking with Manual Reduce. rank= %d duration= %e",rank, time2-time1);
+    MPI_Barrier(new_comm);
+    time1 = MPI_Wtime();
     non_blocking_and_manual_reduce(rank, size, new_comm);
+    time2 = MPI_Wtime();
+    printf("\nNon-blocking with Manual Reduce, rank= %d, duration = %e", rank, time2-time1);
     MPI_Finalize();
     return 0;
 }
