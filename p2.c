@@ -340,6 +340,77 @@ void non_blocking_and_manual_reduce(int rank, int size, MPI_Comm new_comm) {
     if(glo_min_max) free(glo_min_max);
 }
 
+void non_blocking_and_MPI_reduce(int rank, int size, MPI_Comm new_comm) {
+    int i, j, succ, pred;
+    double x[NGRID +2], dx;
+    int n_ngrid;  // Number of grid points allocated to the process.
+    int start_x, end_x; // start and end index for x values for this process.
+
+    double  local_min_max[DEGREE-1];
+    double *y=NULL, *dy=NULL, *err=NULL, *glo_err= NULL;
+    
+    double std_dev, err_avg; 
+    dy_x * dyxi = NULL, *glo_dyxi=NULL;
+
+    MPI_Op my_op;
+    
+    get_x_axis_limits(rank, size, &n_ngrid, &start_x, &end_x, &succ, &pred);
+    dx = create_x_axis_grid_points(x);    
+
+    int xlen = NGRID/size + NGRID % size;
+    y = (double *) malloc((n_ngrid +2) * sizeof(double));
+    dy = (double *) malloc(xlen * sizeof(double));
+    err = (double *) malloc(n_ngrid * sizeof(double));
+    dyxi = (dy_x*)malloc(xlen * sizeof(dy_x)); 
+
+    calculate_y_axis_values(x, y, start_x, end_x);
+    for(i=n_ngrid; i < xlen; i++)
+        dy[i] = INT_MAX;
+    
+    non_blocking_transfer_boundary_values(rank, size, n_ngrid, pred, succ, x, y, dy, new_comm);
+    for(i=start_x, j=0; j< xlen; i++, j++) {
+        dyxi[j].dy = dy[j];
+        dyxi[j].xi = x[i];
+    }
+
+    if (VERBOSE) printf("\n Boundary values transfer success\n");
+    calculate_finite_differencing_error(start_x, n_ngrid, err, dy, x, local_min_max);
+    if (rank == ROOT) {
+        glo_dyxi = (dy_x*)malloc(xlen * sizeof(dy_x));
+        glo_err = (double *) malloc(NGRID * sizeof(double));
+    }
+    MPI_Datatype dydx_type, oldtype[1];
+    int blockcount[1];
+    MPI_Aint offset[1];
+
+    offset[0] = 0;
+    oldtype[0] = MPI_DOUBLE;
+    blockcount[0] = 2;
+    MPI_Type_struct(1, blockcount, offset, oldtype, &dydx_type);
+    MPI_Type_commit(&dydx_type);
+
+    MPI_Op_create((MPI_User_function*)min_max, 0, &my_op);
+    if(DEBUG) printf("\n%d, MPI OPeration created",rank);
+    MPI_Reduce(dyxi, glo_dyxi, xlen, dydx_type, my_op, ROOT, new_comm);
+    if(DEBUG) printf("\n%d MPI_reduce Success", rank);
+    gather_err_vector(rank, size, n_ngrid, err, glo_err, new_comm);
+    if(DEBUG) printf("\n%d Err vector gathered", rank);
+    if (rank == ROOT) {
+        calculate_std_deviation(&std_dev, &err_avg, glo_err);
+        if(DEBUG) printf("\nCalculated Standard deviation");
+        //print_error_data("err2.dat", NGRID, err_avg, std_dev, &x[1], glo_err, glo_min_max, xlen);
+        print_error_data_dydx("err2.dat", NGRID, err_avg, std_dev, &x[1], glo_err, glo_dyxi, xlen);
+        if(DEBUG) printf("\n Printed err value to file");
+   }
+    if(y) free(y);
+    if(dy) free(dy);
+    if(err) free(err);
+    if(glo_err) free(glo_err);
+    if(dyxi) free(dyxi);
+    if(glo_dyxi) free(glo_dyxi);
+    MPI_Op_free(&my_op);
+}
+
 void blocking_and_MPI_reduce(int rank, int size, MPI_Comm new_comm) {
     int i, j, succ, pred;
     double x[NGRID +2], dx;
@@ -380,31 +451,27 @@ void blocking_and_MPI_reduce(int rank, int size, MPI_Comm new_comm) {
     }
     MPI_Datatype dydx_type, oldtype[1];
     int blockcount[1];
-    MPI_Aint offset[1], extent;
+    MPI_Aint offset[1];
 
     offset[0] = 0;
     oldtype[0] = MPI_DOUBLE;
     blockcount[0] = 2;
-    //MPI_Type_extent(MPI_DOUBLE, &extent);
 
     MPI_Type_struct(1, blockcount, offset, oldtype, &dydx_type);
     MPI_Type_commit(&dydx_type);
 
     MPI_Op_create((MPI_User_function*)min_max, 0, &my_op);
-    printf("\n%d, MPI OPeration created",rank);
+    if(DEBUG) printf("\n%d, MPI OPeration created",rank);
     MPI_Reduce(dyxi, glo_dyxi, xlen, dydx_type, my_op, ROOT, new_comm);
-    printf("\n%d MPI_reduce Success", rank);
+    if(DEBUG) printf("\n%d MPI_reduce Success", rank);
     gather_err_vector(rank, size, n_ngrid, err, glo_err, new_comm);
-    printf("\n%d Err vector gathered", rank);
+    if(DEBUG) printf("\n%d Err vector gathered", rank);
     if (rank == ROOT) {
         calculate_std_deviation(&std_dev, &err_avg, glo_err);
-        printf("\nCalculated Standard deviation");
+        if(DEBUG) printf("\nCalculated Standard deviation");
         //print_error_data("err2.dat", NGRID, err_avg, std_dev, &x[1], glo_err, glo_min_max, xlen);
         print_error_data_dydx("err2.dat", NGRID, err_avg, std_dev, &x[1], glo_err, glo_dyxi, xlen);
-        for(i=0; i < xlen; i++)
-            if (glo_dyxi[i].dy != INT_MAX)
-                printf("\ndy= %f  xi= %f y= %f",glo_dyxi[i].dy, glo_dyxi[i].xi, fn(glo_dyxi[i].xi));
-        printf("\n Printed err value to file");
+        if(DEBUG) printf("\n Printed err value to file");
    }
     if(y) free(y);
     if(dy) free(dy);
@@ -414,7 +481,6 @@ void blocking_and_MPI_reduce(int rank, int size, MPI_Comm new_comm) {
     if(glo_dyxi) free(glo_dyxi);
     MPI_Op_free(&my_op);
 }
-
 
 void blocking_and_manual_reduce(int rank, int size, MPI_Comm new_comm) {
     int i, j, succ, pred;
@@ -458,9 +524,6 @@ void blocking_and_manual_reduce(int rank, int size, MPI_Comm new_comm) {
     if(glo_min_max) free(glo_min_max);
 }
 
-void non_blocking_and_MPI_reduce() {
-}
-
 int main(int argc, char *argv[]) {
     int rank, size;
 
@@ -485,6 +548,12 @@ int main(int argc, char *argv[]) {
     blocking_and_MPI_reduce(rank, size, new_comm);
     time2 = MPI_Wtime();
     printf("\nBLocking with MPI Reduce, rank= %d, duration= %e",rank, time2-time1);
+    MPI_Barrier(new_comm);
+    time1 = MPI_Wtime();
+    non_blocking_and_MPI_reduce(rank, size, new_comm);
+    time2 = MPI_Wtime();
+    printf("\nNon - BLocking with MPI Reduce, rank= %d, duration= %e",rank, time2-time1);
+    
     MPI_Finalize();
     return 0;
 }
