@@ -533,7 +533,10 @@ int main(int argc, char *argv[]) {
 
     MPI_Init(&argc, &argv);
     create_new_communicator(&rank, &size, &new_comm);
-    
+    if (rank ==ROOT) {
+        printf("\n NGRID= %d, EPSILON= %f, Size = %d",NGRID, EPSILON, size);
+    }
+    MPI_Barrier(new_comm);
     time1 = MPI_Wtime();
     blocking_and_manual_reduce(rank, size, new_comm);
     time2 = MPI_Wtime();
