@@ -37,16 +37,28 @@ typedef struct {
 void min_max(dy_x *inbuf, dy_x *outbuf, int *len, MPI_Datatype type) {
     int i, j=0;
     dy_x *temp = (dy_x *) malloc((*len) *sizeof(dy_x));
-    for(i=0; i <*len; i++) {
+    for(i=0; i <*len ; i++) {
         if (fabs(inbuf[i].dy) < EPSILON) {
             temp[j].dy = inbuf[i].dy;
             temp[j++].xi = inbuf[i].xi;
+        }
+        if (j > DEGREE-1) {
+            printf("Warning: You have detected more than the maximum possible local minima/maxima.\n");
+			printf("Ensure that DEGREE is accurate or reduce your EPSILON.\n");
+			printf("Reseting count to zero.\n");
+			j = 0;
         }
     }
     for(i = 0; i < *len; i++) {
         if (fabs(outbuf[i].dy) < EPSILON) {
             temp[j].dy = outbuf[i].dy;
             temp[j++].xi = outbuf[i].xi;
+        }
+        if (j > DEGREE-1) {
+            printf("Warning: You have detected more than the maximum possible local minima/maxima.\n");
+            printf("Ensure that DEGREE is accurate or reduce your EPSILON.\n");
+            printf("Reseting count to zero.\n");
+            j = 0;
         }
     }
     for(i=0; i < j; i++) {
@@ -145,11 +157,17 @@ void print_error_data_dydx(char *filename, int np, double avgerr, double stdd,
     FILE *fp = fopen(filename, "w");
     fprintf(fp, "%e\n%e\n", avgerr, stdd);
     if (VERBOSE) printf("\nErr_avg = %e, std_dev= %e", avgerr, stdd);
-
+    int ct=0;
     for(i=0; i<len; i++)
     {
         if(dydx_arr[i].dy != INT_MAX) {
             fprintf(fp, "(%f, %f)\n", dydx_arr[i].xi, fn(dydx_arr[i].xi));
+            ct++;
+            if (ct > DEGREE-1) {
+                printf("Warning: You have detected more than the maximum possible local minima/maxima.\n");
+                printf("Ensure that DEGREE is accurate or reduce your EPSILON.\n");
+                break;
+            }
         }
     }
 
@@ -217,7 +235,9 @@ void blocking_transfer_boundary_values(int rank, int size, int n_ngrid,
     int i, j;
     double dx = x[2] - x[1];
     MPI_Status status;
-    /*
+    /* 
+    Root sends two m
+    Rest process   
     send y[1] to predecessor
     send y[n_ngrid] to successor
     Receive in y[0] from predeessor
@@ -249,6 +269,7 @@ void blocking_transfer_boundary_values(int rank, int size, int n_ngrid,
             MPI_Send(&y[1], 1, MPI_DOUBLE, pred, SEND_TO_PRED, new_comm);
         }
     }
+    // Calculate finite differential at each grid point.
     for(j=1; j<=n_ngrid; j++) {
         dy[j-1] = (y[j+1] - y[j-1]) / (2*dx);
     }
@@ -256,11 +277,25 @@ void blocking_transfer_boundary_values(int rank, int size, int n_ngrid,
 
 
 void get_finite_differ_error_and_critical_points(int start_x, int n_ngrid, double *err, double *dy, double *x, double *local_min_max) {
+    /* Calculate the finite differential error at each grid point. 
+    Compares with actual values returned by dfn.
+    
+    Finds critical points for each process. Stores it into local_min_max which is used to manually
+    gather critical points at ROOT.
+    */
     int min_max_count = 0, i, j;
     for(i=start_x, j=0; j < n_ngrid; i++, j++) {
         err[j] = fabs(dy[j] - dfn(x[i]));
         
+        // Check if this a critical point?
         if(fabs(dy[j]) < EPSILON) {
+            if (min_max_count >= DEGREE-1)
+            {
+                printf("Warning: You have detected more than the maximum possible local minima/maxima.\n");
+                printf("Ensure that DEGREE is accurate or reduce your EPSILON.\n");
+                printf("Reseting count to zero.\n");
+                min_max_count = 0;
+            }
             local_min_max[min_max_count++] = x[i];
             if(VERBOSE) printf("\nProcess found MIN/MAX at x= %f , dy= %f ", x[i], dy[j]);
         }
@@ -271,15 +306,24 @@ void get_finite_differ_error_and_critical_points(int start_x, int n_ngrid, doubl
 }
 
 void get_finite_differ_error(int start_x, int n_ngrid, double *err, double *dy, double *x) {
+    /* Calculate the finite differential error at each grid point. 
+    Compares with actual values returned by dfn.
+    */
     int i, j;
     for(i=start_x, j=0; j < n_ngrid; i++, j++) {
         err[j] = fabs(dy[j] - dfn(x[i]));
     }
 }
 
-
 void gather_err_vector(int rank, int size, int n_ngrid, double *err, double *glo_err, MPI_Comm new_comm) {
+    /* Gathers finite differential errors from all processes at root using MPI_Gatherv method.
+    
+    err     contains the finite differential vector at each process.
+    glo_err Relevant at ROOT only. Stores all the err vectors from each process.
+    */
     int i, block_size = NGRID / size;  // Number of grid points in a block
+    // rcounts specifies the count of items sent by the current process.
+    // displs specifies the displacement in the global buffer where this should be stored. 
     int *rcounts=NULL, *displs=NULL;
     rcounts = (int *)malloc(size * sizeof(int));
     displs = (int *)malloc(size * sizeof(int));
@@ -311,6 +355,12 @@ void calculate_std_deviation(double *std_dev, double *err_avg, double *glo_err) 
 }
 
 void non_blocking_and_manual_reduce(int rank, int size, MPI_Comm new_comm) {
+    /* This calculates finite differential of fn over a range of values. 
+    
+    It uses Non-blocking send and receive to communiate boundary values and 
+    gathers the Maxima/minima points at root with MPI_Gather method.
+    */
+
     int i, j, succ, pred;
     double x[NGRID +2], dx;
     int n_ngrid;  // Number of grid points allocated to the process.
@@ -335,6 +385,7 @@ void non_blocking_and_manual_reduce(int rank, int size, MPI_Comm new_comm) {
         glo_min_max = (double *)malloc(((DEGREE-1)*size) * sizeof(double));
         glo_err = (double *)malloc(NGRID  * sizeof(double));
     }
+    /* Manual gather operation */
     MPI_Gather(local_min_max, DEGREE-1, MPI_DOUBLE, glo_min_max, DEGREE-1, MPI_DOUBLE, ROOT, new_comm);
     gather_err_vector(rank, size, n_ngrid, err, glo_err, new_comm);
     if (rank == ROOT) {
@@ -349,6 +400,12 @@ void non_blocking_and_manual_reduce(int rank, int size, MPI_Comm new_comm) {
 }
 
 void non_blocking_and_MPI_reduce(int rank, int size, MPI_Comm new_comm) {
+    /* This calculates finite differential of fn over a range of values. 
+    
+    It uses Non-blocking send and receive to communicate boundary values and 
+    uses MPI_Reduce to find the critical points (minima/maxima).
+    */
+
     int i, j, succ, pred;
     double x[NGRID +2], dx;
     int n_ngrid;  // Number of grid points allocated to the process.
@@ -375,6 +432,7 @@ void non_blocking_and_MPI_reduce(int rank, int size, MPI_Comm new_comm) {
         dy[i] = INT_MAX;
     
     non_blocking_transfer_boundary_values(rank, size, n_ngrid, pred, succ, x, y, dy, new_comm);
+    // Fill in dy and xi values in dyxi
     for(i=start_x, j=0; j< xlen; i++, j++) {
         dyxi[j].dy = dy[j];
         dyxi[j].xi = x[i];
@@ -386,6 +444,7 @@ void non_blocking_and_MPI_reduce(int rank, int size, MPI_Comm new_comm) {
         glo_dyxi = (dy_x*)malloc(xlen * sizeof(dy_x));
         glo_err = (double *) malloc(NGRID * sizeof(double));
     }
+    // Create a MPI datatype for struct dy_x
     MPI_Datatype dydx_type, oldtype[1];
     int blockcount[1];
     MPI_Aint offset[1];
@@ -396,6 +455,7 @@ void non_blocking_and_MPI_reduce(int rank, int size, MPI_Comm new_comm) {
     MPI_Type_struct(1, blockcount, offset, oldtype, &dydx_type);
     MPI_Type_commit(&dydx_type);
 
+    // Create the operation for MPI gather operation 
     MPI_Op_create((MPI_User_function*)min_max, 0, &my_op);
     if(DEBUG) printf("\n%d, MPI OPeration created",rank);
     MPI_Reduce(dyxi, glo_dyxi, xlen, dydx_type, my_op, ROOT, new_comm);
@@ -422,7 +482,7 @@ void blocking_and_MPI_reduce(int rank, int size, MPI_Comm new_comm) {
     /* This calculates finite differential of fn over a range of values. 
     
     It uses blocking send and receive to communiate boundary values and 
-    uses MPI_Reduce to find the values where there is minima/maxima.
+    uses MPI_Reduce to find the critical points (minima/maxima).
     */
 
     int i, j, succ, pred;
@@ -461,6 +521,7 @@ void blocking_and_MPI_reduce(int rank, int size, MPI_Comm new_comm) {
         glo_dyxi = (dy_x*)malloc(xlen * sizeof(dy_x));
         glo_err = (double *) malloc(NGRID * sizeof(double));
     }
+    // Create a MPI datatype for struct dy_x
     MPI_Datatype dydx_type, oldtype[1];
     int blockcount[1];
     MPI_Aint offset[1];
@@ -472,6 +533,7 @@ void blocking_and_MPI_reduce(int rank, int size, MPI_Comm new_comm) {
     MPI_Type_struct(1, blockcount, offset, oldtype, &dydx_type);
     MPI_Type_commit(&dydx_type);
 
+    // Create the operation for MPI gather operation 
     MPI_Op_create((MPI_User_function*)min_max, 0, &my_op);
     if(DEBUG) printf("\n%d, MPI OPeration created",rank);
     MPI_Reduce(dyxi, glo_dyxi, xlen, dydx_type, my_op, ROOT, new_comm);
