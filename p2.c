@@ -136,14 +136,23 @@ void print_error_data(char *filename, int np, double avgerr, double stdd,
 
   fprintf(fp, "%e\n%e\n", avgerr, stdd);
   if(VERBOSE) printf("\nErr_avg = %e, std_dev= %e", avgerr, stdd);
-
+  ct =0;
   for(i = 0; i<min_max_len; i++)
   {
 	if (min_max_array[i] != INT_MAX) {
 		fprintf(fp, "(%f, %f)\n", min_max_array[i], fn(min_max_array[i]));
+        ct++;
+        if (ct > DEGREE-1) {
+            printf("Warning: You have detected more than the maximum possible local minima/maxima.\n");
+            printf("Ensure that DEGREE is accurate or reduce your EPSILON.\n");
+            break;
+        }
     }
   }
-  
+    for(;ct < DEGREE-1; ct++){
+    fprintf(fp, "(UNDEF, UNDEF)\n");
+    }
+
   for(i = 0; i < np; i++)
   {
 	fprintf(fp, "%f %e \n", x[i], err[i]);
@@ -170,7 +179,9 @@ void print_error_data_dydx(char *filename, int np, double avgerr, double stdd,
             }
         }
     }
-
+    for(;ct < DEGREE-1; ct++){
+        fprintf(fp, "(UNDEF, UNDEF)\n");
+    }
     for(i=0; i< np; i++)
     {
         fprintf(fp, "%f %e \n",x[i], err[i]);
