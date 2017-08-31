@@ -255,7 +255,7 @@ void blocking_transfer_boundary_values(int rank, int size, int n_ngrid,
 }
 
 
-void calculate_finite_differencing_error(int start_x, int n_ngrid, double *err, double *dy, double *x, double *local_min_max) {
+void get_finite_differ_error_and_critical_points(int start_x, int n_ngrid, double *err, double *dy, double *x, double *local_min_max) {
     int min_max_count = 0, i, j;
     for(i=start_x, j=0; j < n_ngrid; i++, j++) {
         err[j] = fabs(dy[j] - dfn(x[i]));
@@ -269,6 +269,14 @@ void calculate_finite_differencing_error(int start_x, int n_ngrid, double *err, 
         local_min_max[j] = INT_MAX;
     }
 }
+
+void get_finite_differ_error(int start_x, int n_ngrid, double *err, double *dy, double *x) {
+    int i, j;
+    for(i=start_x, j=0; j < n_ngrid; i++, j++) {
+        err[j] = fabs(dy[j] - dfn(x[i]));
+    }
+}
+
 
 void gather_err_vector(int rank, int size, int n_ngrid, double *err, double *glo_err, MPI_Comm new_comm) {
     int i, block_size = NGRID / size;  // Number of grid points in a block
@@ -322,7 +330,7 @@ void non_blocking_and_manual_reduce(int rank, int size, MPI_Comm new_comm) {
     calculate_y_axis_values(x, y, start_x, end_x);
     non_blocking_transfer_boundary_values(rank, size, n_ngrid, pred, succ, x, y, dy, new_comm);
     if (VERBOSE) printf("\n Boundary values transfer success\n");
-    calculate_finite_differencing_error(start_x, n_ngrid, err, dy, x, local_min_max);
+    get_finite_differ_error_and_critical_points(start_x, n_ngrid, err, dy, x, local_min_max);
     if (rank == ROOT){
         glo_min_max = (double *)malloc(((DEGREE-1)*size) * sizeof(double));
         glo_err = (double *)malloc(NGRID  * sizeof(double));
@@ -346,7 +354,6 @@ void non_blocking_and_MPI_reduce(int rank, int size, MPI_Comm new_comm) {
     int n_ngrid;  // Number of grid points allocated to the process.
     int start_x, end_x; // start and end index for x values for this process.
 
-    double  local_min_max[DEGREE-1];
     double *y=NULL, *dy=NULL, *err=NULL, *glo_err= NULL;
     
     double std_dev, err_avg; 
@@ -374,7 +381,7 @@ void non_blocking_and_MPI_reduce(int rank, int size, MPI_Comm new_comm) {
     }
 
     if (VERBOSE) printf("\n Boundary values transfer success\n");
-    calculate_finite_differencing_error(start_x, n_ngrid, err, dy, x, local_min_max);
+    get_finite_differ_error(start_x, n_ngrid, err, dy, x);
     if (rank == ROOT) {
         glo_dyxi = (dy_x*)malloc(xlen * sizeof(dy_x));
         glo_err = (double *) malloc(NGRID * sizeof(double));
@@ -412,12 +419,17 @@ void non_blocking_and_MPI_reduce(int rank, int size, MPI_Comm new_comm) {
 }
 
 void blocking_and_MPI_reduce(int rank, int size, MPI_Comm new_comm) {
+    /* This calculates finite differential of fn over a range of values. 
+    
+    It uses blocking send and receive to communiate boundary values and 
+    uses MPI_Reduce to find the values where there is minima/maxima.
+    */
+
     int i, j, succ, pred;
     double x[NGRID +2], dx;
     int n_ngrid;  // Number of grid points allocated to the process.
     int start_x, end_x; // start and end index for x values for this process.
 
-    double  local_min_max[DEGREE-1];
     double *y=NULL, *dy=NULL, *err=NULL, *glo_err= NULL;
     double std_dev, err_avg; 
     dy_x * dyxi = NULL, *glo_dyxi=NULL;
@@ -444,7 +456,7 @@ void blocking_and_MPI_reduce(int rank, int size, MPI_Comm new_comm) {
         dyxi[j].xi = x[i];
     }
     if(VERBOSE) printf("\n%d No deadlock occured\n", rank); 
-    calculate_finite_differencing_error(start_x, n_ngrid, err, dy, x, local_min_max);
+    get_finite_differ_error(start_x, n_ngrid, err, dy, x);
     if (rank == ROOT) {
         glo_dyxi = (dy_x*)malloc(xlen * sizeof(dy_x));
         glo_err = (double *) malloc(NGRID * sizeof(double));
@@ -483,12 +495,17 @@ void blocking_and_MPI_reduce(int rank, int size, MPI_Comm new_comm) {
 }
 
 void blocking_and_manual_reduce(int rank, int size, MPI_Comm new_comm) {
+    /* This calculates finite differential of fn over a range of values. 
+    
+    It uses blocking send and receive to communiate boundary values and 
+    gathers the Maxima/minima points at root with MPI_Gather method.
+    */
     int i, j, succ, pred;
     double x[NGRID +2], dx;
     int n_ngrid;  // Number of grid points allocated to the process.
     int start_x, end_x; // start and end index for x values for this process.
 
-    double  local_min_max[DEGREE-1];
+    double  local_min_max[DEGREE-1];  // Stores the minima/maxima points at each process.
     double *y=NULL, *dy=NULL, *err=NULL, *glo_err= NULL;
     double std_dev, err_avg, *glo_min_max=NULL;
     
@@ -500,15 +517,17 @@ void blocking_and_manual_reduce(int rank, int size, MPI_Comm new_comm) {
     err = (double *) malloc(n_ngrid * sizeof(double));
    
     calculate_y_axis_values(x, y, start_x, end_x);
+    
     blocking_transfer_boundary_values(rank, size, n_ngrid, pred, succ, x, y, dy, new_comm);
     if(VERBOSE) printf("\n%d No deadlock occured\n", rank); 
-    calculate_finite_differencing_error(start_x, n_ngrid, err, dy, x, local_min_max);
+    
+    get_finite_differ_error_and_critical_points(start_x, n_ngrid, err, dy, x, local_min_max);
     
     if (rank == ROOT){
         glo_min_max = (double *)malloc(((DEGREE-1)*size) * sizeof(double));
         glo_err = (double *)malloc(NGRID  * sizeof(double));
     }
-    
+    /* Manual gather operation */
     MPI_Gather(local_min_max, DEGREE-1, MPI_DOUBLE, glo_min_max, DEGREE-1, MPI_DOUBLE, ROOT, new_comm);
 
     gather_err_vector(rank, size, n_ngrid, err, glo_err, new_comm);
