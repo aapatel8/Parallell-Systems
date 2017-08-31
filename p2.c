@@ -30,6 +30,28 @@ double dfn(double x) {
     //return 2 * x;
 }
 
+void min_max(double *inbuf, double *outbuf, int *len, MPI_Datatype type) {
+    int i, j=0;
+    double *temp = (double *)malloc(*len *sizeof(double));
+    for(i=0; i< *len; i++){
+        if (inbuf[i] < EPSILON) {
+            temp[j++] = inbuf[i];
+            }
+        }
+    for(i=0; i< *len; i++) {
+        if (outbuf[i] < EPSILON) {
+            temp[j++] = outbuf[i];
+            }
+        }
+    for(i=0; i< j; i++) {
+        outbuf[i] = temp[i];
+        }
+    for(;i<*len;i++) {
+        outbuf[i] = INT_MAX;
+        }
+    if (temp) free(temp);
+}
+
 void create_new_communicator(int *rank, int *size, MPI_Comm *new_comm) {
     MPI_Group new_group, orig_group;
     MPI_Comm_size(MPI_COMM_WORLD, size);
@@ -110,8 +132,8 @@ void print_error_data(char *filename, int np, double avgerr, double stdd,
 }
 
 /* The calling function should call free on y, dy and err buffers */ 
-void calculate_y_axis_values(double *x, double *y, double *dy, double *err, int n_ngrid, int start_x, int end_x) {
-    if (y == NULL || dy == NULL || err == NULL) {
+void calculate_y_axis_values(double *x, double *y, int start_x, int end_x) {
+    if (y == NULL) {
         printf("\n Memory Allocation Failed");
         exit(-1);
     }
@@ -269,7 +291,7 @@ void non_blocking_and_manual_reduce(int rank, int size, MPI_Comm new_comm) {
     dy = (double *) malloc(n_ngrid * sizeof(double));
     err = (double *) malloc(n_ngrid * sizeof(double));
    
-    calculate_y_axis_values(x, y, dy, err, n_ngrid, start_x, end_x);
+    calculate_y_axis_values(x, y, start_x, end_x);
     non_blocking_transfer_boundary_values(rank, size, n_ngrid, pred, succ, x, y, dy, new_comm);
     if (VERBOSE) printf("\n Boundary values transfer success\n");
     calculate_finite_differencing_error(start_x, n_ngrid, err, dy, x, local_min_max);
@@ -290,6 +312,52 @@ void non_blocking_and_manual_reduce(int rank, int size, MPI_Comm new_comm) {
     if(glo_min_max) free(glo_min_max);
 }
 
+void blocking_and_MPI_reduce(int rank, int size, MPI_Comm new_comm) {
+    int i, j, succ, pred;
+    double x[NGRID +2], dx;
+    int n_ngrid;  // Number of grid points allocated to the process.
+    int start_x, end_x; // start and end index for x values for this process.
+
+    double  local_min_max[DEGREE-1];
+    double *y=NULL, *dy=NULL, *err=NULL, *glo_err= NULL;
+    double std_dev, err_avg, *glo_min_max=NULL;
+
+    MPI_Op my_op;
+    
+    get_x_axis_limits(rank, size, &n_ngrid, &start_x, &end_x, &succ, &pred);
+    dx = create_x_axis_grid_points(x);    
+    
+    int xlen = NGRID/size + NGRID % size;
+    y = (double *) malloc((n_ngrid +2) * sizeof(double));
+    dy = (double *) malloc(xlen * sizeof(double));
+    err = (double *) malloc(n_ngrid * sizeof(double));
+    calculate_y_axis_values(x, y, start_x, end_x);
+    for(i=n_ngrid; i < xlen; i++)
+        dy[i] = INT_MAX;
+    blocking_transfer_boundary_values(rank, size, n_ngrid, pred, succ, x, y, dy, new_comm);
+    if(VERBOSE) printf("\n%d No deadlock occured\n", rank); 
+    calculate_finite_differencing_error(start_x, n_ngrid, err, dy, x, local_min_max);
+    if (rank == ROOT) {
+        glo_min_max = (double *) malloc(xlen * sizeof(double));
+        glo_err = (double *) malloc(NGRID * sizeof(double));
+    }
+    
+    MPI_Op_create((MPI_User_function*)min_max, 1, &my_op);
+    MPI_Reduce(dy, glo_min_max, xlen, MPI_DOUBLE, my_op, ROOT, new_comm);
+    gather_err_vector(rank, size, n_ngrid, err, glo_err, new_comm);
+
+    if (rank == ROOT) {
+        calculate_std_deviation(&std_dev, &err_avg, glo_err);
+        print_error_data("err2.dat", NGRID, err_avg, std_dev, &x[1], glo_err, glo_min_max, xlen);
+    }
+    if(y) free(y);
+    if(dy) free(dy);
+    if(err) free(err);
+    if(glo_err) free(glo_err);
+    if(glo_min_max) free(glo_min_max);
+}
+
+
 void blocking_and_manual_reduce(int rank, int size, MPI_Comm new_comm) {
     int i, j, succ, pred;
     double x[NGRID +2], dx;
@@ -307,7 +375,7 @@ void blocking_and_manual_reduce(int rank, int size, MPI_Comm new_comm) {
     dy = (double *) malloc(n_ngrid * sizeof(double));
     err = (double *) malloc(n_ngrid * sizeof(double));
    
-    calculate_y_axis_values(x, y, dy, err, n_ngrid, start_x, end_x);
+    calculate_y_axis_values(x, y, start_x, end_x);
     blocking_transfer_boundary_values(rank, size, n_ngrid, pred, succ, x, y, dy, new_comm);
     if(VERBOSE) printf("\n%d No deadlock occured\n", rank); 
     calculate_finite_differencing_error(start_x, n_ngrid, err, dy, x, local_min_max);
@@ -330,9 +398,6 @@ void blocking_and_manual_reduce(int rank, int size, MPI_Comm new_comm) {
     if(err) free(err);
     if(glo_err) free(glo_err);
     if(glo_min_max) free(glo_min_max);
-}
-
-void blocking_and_MPI_reduce() {
 }
 
 void non_blocking_and_MPI_reduce() {
