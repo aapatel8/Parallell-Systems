@@ -1,3 +1,23 @@
+/******************************************************************************
+* FILE: p2.c
+* DESCRIPTION:
+*
+* Users will supply the functions
+* i.) fn(x) - the polynomial function to be analyized
+* ii.) dfn(x) - the true derivative of the function
+* iii.) DEGREE - the degree of the polynomial
+* iV.) EPSILON  - The acceptable err threshold to approximate critical point.
+* V.)  NGRID    - The number of grid points
+* The function fn(x) should be a polynomial.
+*
+* GROUP INFO:
+ pranjan            Pritesh Ranjan
+ kmishra            Kushagra Mishra
+ aapatel8           Akshit Patel
+* 
+* Parallel version of the serial code provided for Class CSC-548
+******************************************************************************/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <limits.h>
@@ -20,21 +40,29 @@
 #define DEBUG 0
 #define VERBOSE 0
 
+//returns the function y(x) = fn
 double fn(double x) {
     return pow(x,3) - pow(x,2) - x + 1;
     //return pow(x,2);
 }
 
+//returns the derivative d(fn)/dx = dy/dx
 double dfn(double x) {
     return 3 * pow(x,2) - 2 * x - 1;
     //return 2 * x;
 }
+
 
 typedef struct {
     double dy, xi;
     } dy_x;
 
 void min_max(dy_x *inbuf, dy_x *outbuf, int *len, MPI_Datatype type) {
+    /* The operation used by MPI reduce to find the critical points.
+    
+    Iterates throuh inbuf as well as outbuf and stores all the points where 
+    dy is less than EPSILON into outbuf.
+    */
     int i, j=0;
     dy_x *temp = (dy_x *) malloc((*len) *sizeof(dy_x));
     for(i=0; i <*len ; i++) {
@@ -73,6 +101,11 @@ void min_max(dy_x *inbuf, dy_x *outbuf, int *len, MPI_Datatype type) {
 }
 
 void create_new_communicator(int *rank, int *size, MPI_Comm *new_comm) {
+    /* Creates a new communiactor. All the processes running this program 
+    belong to this communicator.
+    
+    new_comm shall be used to do all the communication.
+    */
     MPI_Group new_group, orig_group;
     MPI_Comm_size(MPI_COMM_WORLD, size);
     int *new_ranks, i;
@@ -117,10 +150,12 @@ void get_x_axis_limits(int rank, int size, int *n_ngrid, int *start_x, int *end_
 double create_x_axis_grid_points(double *x) {
     int i=1;
     double dx;
-    
+    //construct grid
+
     for(i=1; i <= NGRID; i++) {
         x[i] = XI + (XF - XI) * (double)(i-1)/(double)(NGRID-1);
     }
+    //step size and boundary points
     dx = x[2] - x[1];
     x[0] = x[1] - dx;
     x[NGRID+1] = x[NGRID] + dx;
@@ -136,7 +171,7 @@ void print_error_data(char *filename, int np, double avgerr, double stdd,
 
   fprintf(fp, "%e\n%e\n", avgerr, stdd);
   if(VERBOSE) printf("\nErr_avg = %e, std_dev= %e", avgerr, stdd);
-  ct =0;
+  int ct =0;
   for(i = 0; i<min_max_len; i++)
   {
 	if (min_max_array[i] != INT_MAX) {
@@ -203,6 +238,16 @@ void calculate_y_axis_values(double *x, double *y, int start_x, int end_x) {
 void non_blocking_transfer_boundary_values(int rank, int size, int n_ngrid, 
                         int pred, int succ, double *x, double *y, double *dy, 
                         MPI_Comm new_comm) {
+    /* Non-Blocking send and receive is used by the processes.
+    Root sends and receives one message from the successer node.
+    Last process sends and receives one message from the predecessor node.
+    Rest of the intermediate processes do the following.
+        send y[1] to predecessor
+        send y[n_ngrid] to successor
+        Receive in y[0] from predeessor
+        Receive in y[n_ngrid+1] from successor.
+    */
+
     int i, j;
     double dx = x[2]-x[1];
     
@@ -233,6 +278,8 @@ void non_blocking_transfer_boundary_values(int rank, int size, int n_ngrid,
         MPI_Isend(&y[1], 1, MPI_DOUBLE, pred, SEND_TO_PRED, new_comm, &reqs[3]);
         MPI_Waitall(4, reqs, stats);
         }
+
+    // Calculate finite differential at each grid point.
     for(j=1; j<=n_ngrid; j++) {
         dy[j-1] = (y[j+1] - y[j-1]) / (2*dx);
     }
@@ -243,17 +290,19 @@ void non_blocking_transfer_boundary_values(int rank, int size, int n_ngrid,
 void blocking_transfer_boundary_values(int rank, int size, int n_ngrid, 
                         int pred, int succ, double *x, double *y, double *dy, 
                         MPI_Comm new_comm) {
+    /* Blocking send and receive is used by the processes.
+    Root sends and receives one message from the successer node.
+    Last process sends and receives one message from the predecessor node.
+    Rest of the intermediate processes do the following.
+        send y[1] to predecessor
+        send y[n_ngrid] to successor
+        Receive in y[0] from predeessor
+        Receive in y[n_ngrid+1] from successor.
+    */
+
     int i, j;
     double dx = x[2] - x[1];
     MPI_Status status;
-    /* 
-    Root sends two m
-    Rest process   
-    send y[1] to predecessor
-    send y[n_ngrid] to successor
-    Receive in y[0] from predeessor
-    Receive in y[n_ngrid+1] from successor.
-    */
 
     if(rank == ROOT) { // Root has no predecessor
         // ROOT sends to rank 1, with tag SEND_TO_SUCC and receives with tag RECV_FROM_SUCC 
