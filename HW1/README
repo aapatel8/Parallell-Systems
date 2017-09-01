@@ -1,0 +1,33 @@
+#
+# CSC 548: HW1 Problem 3
+# Group Info:
+#
+# aapatel8 Akshit Patel
+# kmishra Kushagra Mishra
+# pranjan Pritesh Ranjan
+#
+
+After running "make" command the "mpi_p3" executable is generated.
+Running the "mpi_p3" executable produces the output for the following scenarios:
+[1] Blocking with Manual Reduce (Error file: err.dat):
+        Uses blocking MPI_Send and MPI_Recv for message exchange and finds the local minima/maxima using MPI_Gatherv at the root node.
+[2] Non-blocking with Manual Reduce (Error file: err1.dat)
+        Uses Non-blocking MPI_Isend and MPI_Irecv for message exchange and finds the local minima/maxima using MPI_Gatherv at the root node.
+[3] Blocking with MPI Reduce (Error file: err2.dat)
+        Uses blocking MPI_Send and MPI_Recv for message exchange and finds the local minima/maxima using MPI_Reduce and custom op function at the root node.
+[4] Non - Blocking with MPI Reduce (Error file: err3.dat)
+        Uses Non-blocking MPI_Isend and MPI_Irecv for message exchange and finds the local minima/maxima using MPI_Reduce and custom op function at the root node.
+
+The output is in the format: "<Blocking or Non-Blocking> with <MPI or Manual> Reduce, rank= <rank of process>, duration= <duration of process>"
+
+
+
+Steps to Run the program:
+
+- Login to a node using command : "srun -N1 -n8 -p opteron --pty /bin/bash" (use different number of processors if needed)
+
+- Check if you have p3.c and Makefile in the same folder
+
+- Build the code using: "make"
+
+- Run the program using command: "prun ./mpi_p3"
