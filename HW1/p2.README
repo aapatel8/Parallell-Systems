@@ -7,8 +7,8 @@
 # pranjan Pritesh Ranjan
 #
 
-After running "make" command the "mpi_p3" executable is generated.
-Running the "mpi_p3" executable produces the output for the following scenarios:
+After running "make" command the "p2_mpi" executable is generated.
+Running the "p2_mpi" executable produces the output for the following scenarios:
 [1] Blocking with Manual Reduce (Error file: err.dat):
         Uses blocking MPI_Send and MPI_Recv for message exchange and finds the local minima/maxima using MPI_Gatherv at the root node.
 [2] Non-blocking with Manual Reduce (Error file: err1.dat)
@@ -28,6 +28,6 @@ Steps to Run the program:
 
 - Check if you have p3.c and Makefile in the same folder
 
-- Build the code using: "make"
+- Build the code using: "make -f p2.Makefile"
 
-- Run the program using command: "prun ./mpi_p3"
+- Run the program using command: "prun ./p2_mpi"
