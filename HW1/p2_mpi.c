@@ -38,7 +38,7 @@
 #define RECV_FROM_SUCC 0
 #define ROOT 0
 #define DEBUG 0
-#define VERBOSE 0
+#define VERBOSE 1
 
 //returns the function y(x) = fn
 double fn(double x) {
@@ -287,7 +287,7 @@ void non_blocking_transfer_boundary_values(int rank, int size, int n_ngrid,
     if (stats) free(stats);
     t2 = MPI_Wtime();
 
-    printf("\nsize=%d ,rank=%d ,NGRID=%d EPSILON= %d, Finite differential calculation time = %f ",size, rank, NGRID, EPSILON, t2-t1);
+    if (VERBOSE) printf("\nsize=%d ,rank=%d ,NGRID=%d EPSILON= %f, Non-Blocking Finite differential calculation time = %e ",size, rank, NGRID, EPSILON, t2-t1);
 }
 
 void blocking_transfer_boundary_values(int rank, int size, int n_ngrid, 
@@ -339,7 +339,7 @@ void blocking_transfer_boundary_values(int rank, int size, int n_ngrid,
     }
     t2 = MPI_Wtime();
     
-    printf("\nsize=%d ,rank=%d ,NGRID=%d EPSILON= %d, Finite differential calculation time = %f ",size, rank, NGRID, EPSILON, t2-t1);
+    if (VERBOSE) printf("\nsize=%d ,rank=%d ,NGRID=%d EPSILON= %f, Blocking Finite differential calculation time = %e ",size, rank, NGRID, EPSILON, t2-t1);
 }
 
 
@@ -447,11 +447,11 @@ void non_blocking_and_manual_reduce(int rank, int size, MPI_Comm new_comm) {
    
     calculate_y_axis_values(x, y, start_x, end_x);
     non_blocking_transfer_boundary_values(rank, size, n_ngrid, pred, succ, x, y, dy, new_comm);
-    if (VERBOSE) printf("\n Boundary values transfer success\n");
+    if (DEBUG) printf("\n Boundary values transfer success\n");
     t1 = MPI_Wtime();
     get_finite_differ_error_and_critical_points(start_x, n_ngrid, err, dy, x, local_min_max);
     t2 = MPI_Wtime();
-    printf("\nCASE 2. size=%d ,rank=%d ,NGRID=%d EPSILON= %d. Differential ERROR calculation time = %f ",size, rank, NGRID, EPSILON, t2-t1);
+    if (VERBOSE) printf("\nCASE 2. size=%d ,rank=%d ,NGRID=%d EPSILON= %f. Differential ERROR calculation time = %e ",size, rank, NGRID, EPSILON, t2-t1);
     if (rank == ROOT){
         glo_min_max = (double *)malloc(((DEGREE-1)*size) * sizeof(double));
         glo_err = (double *)malloc(NGRID  * sizeof(double));
@@ -510,11 +510,11 @@ void non_blocking_and_MPI_reduce(int rank, int size, MPI_Comm new_comm) {
         dyxi[j].xi = x[i];
     }
 
-    if (VERBOSE) printf("\n Boundary values transfer success\n");
+    if (DEBUG) printf("\n Boundary values transfer success\n");
     t1  = MPI_Wtime();
     get_finite_differ_error(start_x, n_ngrid, err, dy, x);
     t2 = MPI_Wtime();
-    printf("\nCASE 4. size=%d ,rank=%d ,NGRID=%d EPSILON= %d.  Differential ERROR  calculation time = %f ",size, rank, NGRID, EPSILON, t2-t1);
+    if (VERBOSE) printf("\nCASE 4. size=%d ,rank=%d ,NGRID=%d EPSILON= %f.  Differential ERROR  calculation time = %e ",size, rank, NGRID, EPSILON, t2-t1);
     if (rank == ROOT) {
         glo_dyxi = (dy_x*)malloc(xlen * sizeof(dy_x));
         glo_err = (double *) malloc(NGRID * sizeof(double));
@@ -596,7 +596,7 @@ void blocking_and_MPI_reduce(int rank, int size, MPI_Comm new_comm) {
     t1 = MPI_Wtime();
     get_finite_differ_error(start_x, n_ngrid, err, dy, x);
     t2 = MPI_Wtime();
-    printf("\nCASE 3, size=%d ,rank=%d ,NGRID=%d EPSILON= %d.  Differential ERROR calculation time = %f ",size, rank, NGRID, EPSILON, t2-t1);
+    if (VERBOSE) printf("\nCASE 3, size=%d ,rank=%d ,NGRID=%d EPSILON= %f.  Differential ERROR calculation time = %e ",size, rank, NGRID, EPSILON, t2-t1);
     if (rank == ROOT) {
         glo_dyxi = (dy_x*)malloc(xlen * sizeof(dy_x));
         glo_err = (double *) malloc(NGRID * sizeof(double));
@@ -667,7 +667,7 @@ void blocking_and_manual_reduce(int rank, int size, MPI_Comm new_comm) {
     t1 = MPI_Wtime();
     get_finite_differ_error_and_critical_points(start_x, n_ngrid, err, dy, x, local_min_max);
     t2 = MPI_Wtime();
-    printf("\nCASE 1. size=%d ,rank=%d ,NGRID=%d EPSILON= %d.  Differential ERROR calculation time = %f ",size, rank, NGRID, EPSILON, t2-t1);
+    if (VERBOSE) printf("\nCASE 1. size=%d ,rank=%d ,NGRID=%d EPSILON= %f.  Differential ERROR calculation time = %e ",size, rank, NGRID, EPSILON, t2-t1);
     if (rank == ROOT){
         glo_min_max = (double *)malloc(((DEGREE-1)*size) * sizeof(double));
         glo_err = (double *)malloc(NGRID  * sizeof(double));
