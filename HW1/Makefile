@@ -9,10 +9,10 @@
 # Makefile:
 #
 
-all: mpi_p3
+all: p2_mpi
 
-mpi_p3:
-	mpicc -lm -O3 -o mpi_p3 p3.c
+p2_mpi:
+	mpicc -lm -O3 -o p2_mpi p2_mpi.c
 
 clean:
-	rm -rf *.dat mpi_p3
+	rm -rf *.dat p2_mpi
