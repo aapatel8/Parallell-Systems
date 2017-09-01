@@ -26,7 +26,7 @@ Steps to Run the program:
 
 - Login to a node using command : "srun -N1 -n8 -p opteron --pty /bin/bash" (use different number of processors if needed)
 
-- Check if you have p3.c and Makefile in the same folder
+- Check if you have p2_mpi.c and p2.Makefile in the same folder
 
 - Build the code using: "make -f p2.Makefile"
 
