@@ -38,7 +38,7 @@
 #define RECV_FROM_SUCC 0
 #define ROOT 0
 #define DEBUG 0
-#define VERBOSE 1
+#define VERBOSE 0
 
 //returns the function y(x) = fn
 double fn(double x) {
