@@ -20,8 +20,6 @@ Running the "p2_mpi" executable produces the output for the following scenarios:
 
 The output is in the format: "<Blocking or Non-Blocking> with <MPI or Manual> Reduce, rank= <rank of process>, duration= <duration of process>"
 
-
-
 Steps to Run the program:
 
 - Login to a node using command : "srun -N1 -n8 -p opteron --pty /bin/bash" (use different number of processors if needed)
@@ -31,3 +29,152 @@ Steps to Run the program:
 - Build the code using: "make -f p2.Makefile"
 
 - Run the program using command: "prun ./p2_mpi"
+
+Analysis: 
+
+The root process takes more time to complete as it waits for all other processes to send data. 
+It collates the error and prints it, also it finds the local maxima and minima.
+
+Blocking vs Non-blocking: 
+
+As can be seen from the sample output below, the blocking communication method takes more time than the non-blocking
+communication method. In blocking scenario each process waits for an acknoledgement before proceeding and hence it is slower.
+
+Sample run output:
+Blocking with Manual Reduce. rank= 2 duration= 1.952648e-04
+Blocking with Manual Reduce. rank= 3 duration= 2.021790e-04
+Blocking with Manual Reduce. rank= 1 duration= 2.071857e-04
+Blocking with Manual Reduce. rank= 4 duration= 2.276897e-04
+Blocking with Manual Reduce. rank= 5 duration= 2.119541e-04
+Blocking with Manual Reduce. rank= 7 duration= 2.331734e-04
+Blocking with Manual Reduce. rank= 6 duration= 2.257824e-04
+Blocking with Manual Reduce. rank= 0 duration= 3.197908e-03
+Non-blocking with Manual Reduce, rank= 3, duration = 4.911423e-05
+Non-blocking with Manual Reduce, rank= 1, duration = 1.113415e-04
+Non-blocking with Manual Reduce, rank= 2, duration = 9.727478e-05
+Non-blocking with Manual Reduce, rank= 4, duration = 1.103878e-04
+Non-blocking with Manual Reduce, rank= 5, duration = 1.111031e-04
+Non-blocking with Manual Reduce, rank= 6, duration = 1.075268e-04
+Non-blocking with Manual Reduce, rank= 7, duration = 1.101494e-04
+Non-blocking with Manual Reduce, rank= 0, duration = 2.880096e-03
+BLocking with MPI Reduce, rank= 3, duration= 1.161098e-04
+BLocking with MPI Reduce, rank= 2, duration= 1.590252e-04
+BLocking with MPI Reduce, rank= 1, duration= 1.828671e-04
+BLocking with MPI Reduce, rank= 4, duration= 2.088547e-04
+BLocking with MPI Reduce, rank= 5, duration= 1.978874e-04
+BLocking with MPI Reduce, rank= 6, duration= 2.007484e-04
+BLocking with MPI Reduce, rank= 7, duration= 1.626015e-04
+BLocking with MPI Reduce, rank= 0, duration= 3.823042e-03
+Non - BLocking with MPI Reduce, rank= 1, duration= 6.365776e-05
+Non - BLocking with MPI Reduce, rank= 2, duration= 6.532669e-05
+Non - BLocking with MPI Reduce, rank= 3, duration= 5.412102e-05
+Non - BLocking with MPI Reduce, rank= 5, duration= 5.412102e-05
+Non - BLocking with MPI Reduce, rank= 6, duration= 6.699562e-05
+Non - BLocking with MPI Reduce, rank= 7, duration= 5.340576e-05
+Non - BLocking with MPI Reduce, rank= 4, duration= 8.130074e-05
+Non - BLocking with MPI Reduce, rank= 0, duration= 2.758265e-03
+
+
+MPI Reduce vs Manual Reduce:
+
+As can be seen from the output above, for the same communication method there is hardly any difference between manual and MPI reduce. 
+Both are comparable.
+
+Differential Error:
+
+As can be seen from the sample run output, the differential error calculation takes almost the same time 
+across all the processes.
+
+Sample Run output: 
+CASE 1. size=8 ,rank=1 ,NGRID=1000 EPSILON= 0.005000.  Differential ERROR calculation time = 1.430511e-06
+CASE 1. size=8 ,rank=2 ,NGRID=1000 EPSILON= 0.005000.  Differential ERROR calculation time = 4.053116e-06
+CASE 1. size=8 ,rank=3 ,NGRID=1000 EPSILON= 0.005000.  Differential ERROR calculation time = 1.192093e-06
+CASE 1. size=8 ,rank=5 ,NGRID=1000 EPSILON= 0.005000.  Differential ERROR calculation time = 1.192093e-06
+CASE 1. size=8 ,rank=6 ,NGRID=1000 EPSILON= 0.005000.  Differential ERROR calculation time = 9.059906e-06
+CASE 1. size=8 ,rank=7 ,NGRID=1000 EPSILON= 0.005000.  Differential ERROR calculation time = 2.384186e-06
+CASE 1. size=8 ,rank=4 ,NGRID=1000 EPSILON= 0.005000.  Differential ERROR calculation time = 1.192093e-06
+CASE 2. size=8 ,rank=4 ,NGRID=1000 EPSILON= 0.005000. Differential ERROR calculation time = 7.152557e-07
+CASE 2. size=8 ,rank=5 ,NGRID=1000 EPSILON= 0.005000. Differential ERROR calculation time = 9.536743e-07
+CASE 2. size=8 ,rank=6 ,NGRID=1000 EPSILON= 0.005000. Differential ERROR calculation time = 4.768372e-06
+CASE 2. size=8 ,rank=7 ,NGRID=1000 EPSILON= 0.005000. Differential ERROR calculation time = 2.145767e-06
+CASE 2. size=8 ,rank=0 ,NGRID=1000 EPSILON= 0.005000. Differential ERROR calculation time = 9.536743e-07
+CASE 2. size=8 ,rank=2 ,NGRID=1000 EPSILON= 0.005000. Differential ERROR calculation time = 3.814697e-06
+CASE 2. size=8 ,rank=3 ,NGRID=1000 EPSILON= 0.005000. Differential ERROR calculation time = 7.152557e-07
+CASE 2. size=8 ,rank=1 ,NGRID=1000 EPSILON= 0.005000. Differential ERROR calculation time = 1.192093e-06
+CASE 3, size=8 ,rank=6 ,NGRID=1000 EPSILON= 0.005000.  Differential ERROR calculation time = 7.152557e-07
+CASE 3, size=8 ,rank=7 ,NGRID=1000 EPSILON= 0.005000.  Differential ERROR calculation time = 7.152557e-07
+CASE 3, size=8 ,rank=0 ,NGRID=1000 EPSILON= 0.005000.  Differential ERROR calculation time = 7.152557e-07
+CASE 3, size=8 ,rank=1 ,NGRID=1000 EPSILON= 0.005000.  Differential ERROR calculation time = 7.152557e-07
+CASE 3, size=8 ,rank=2 ,NGRID=1000 EPSILON= 0.005000.  Differential ERROR calculation time = 7.152557e-07
+CASE 3, size=8 ,rank=3 ,NGRID=1000 EPSILON= 0.005000.  Differential ERROR calculation time = 7.152557e-07
+CASE 3, size=8 ,rank=4 ,NGRID=1000 EPSILON= 0.005000.  Differential ERROR calculation time = 4.768372e-07
+CASE 3, size=8 ,rank=5 ,NGRID=1000 EPSILON= 0.005000.  Differential ERROR calculation time = 9.536743e-07
+CASE 4. size=8 ,rank=3 ,NGRID=1000 EPSILON= 0.005000.  Differential ERROR  calculation time = 9.536743e-07
+CASE 4. size=8 ,rank=4 ,NGRID=1000 EPSILON= 0.005000.  Differential ERROR  calculation time = 4.768372e-07
+CASE 4. size=8 ,rank=5 ,NGRID=1000 EPSILON= 0.005000.  Differential ERROR  calculation time = 7.152557e-07
+CASE 4. size=8 ,rank=6 ,NGRID=1000 EPSILON= 0.005000.  Differential ERROR  calculation time = 9.536743e-07
+CASE 4. size=8 ,rank=7 ,NGRID=1000 EPSILON= 0.005000.  Differential ERROR  calculation time = 4.768372e-07
+CASE 4. size=8 ,rank=0 ,NGRID=1000 EPSILON= 0.005000.  Differential ERROR  calculation time = 1.192093e-06
+CASE 4. size=8 ,rank=1 ,NGRID=1000 EPSILON= 0.005000.  Differential ERROR  calculation time = 9.536743e-07
+CASE 4. size=8 ,rank=2 ,NGRID=1000 EPSILON= 0.005000.  Differential ERROR  calculation time = 9.536743e-07
+
+Finite Difference: 
+
+As can be seen from the sample run output, the differential error calculation takes almost the same time 
+across all the processes.
+
+Sample run output:
+size=8 ,rank=0 ,NGRID=1000 EPSILON= 0.005000, Blocking Finite differential calculation time = 2.741814e-05
+size=8 ,rank=4 ,NGRID=1000 EPSILON= 0.005000, Blocking Finite differential calculation time = 2.789497e-05
+size=8 ,rank=1 ,NGRID=1000 EPSILON= 0.005000, Blocking Finite differential calculation time = 1.971722e-04
+size=8 ,rank=2 ,NGRID=1000 EPSILON= 0.005000, Blocking Finite differential calculation time = 2.288818e-05
+size=8 ,rank=3 ,NGRID=1000 EPSILON= 0.005000, Blocking Finite differential calculation time = 1.940727e-04
+size=8 ,rank=5 ,NGRID=1000 EPSILON= 0.005000, Blocking Finite differential calculation time = 3.218651e-04
+size=8 ,rank=6 ,NGRID=1000 EPSILON= 0.005000, Blocking Finite differential calculation time = 5.078316e-05
+size=8 ,rank=7 ,NGRID=1000 EPSILON= 0.005000, Blocking Finite differential calculation time = 2.398491e-04
+size=8 ,rank=4 ,NGRID=1000 EPSILON= 0.005000, Non-Blocking Finite differential calculation time = 1.311302e-05
+size=8 ,rank=5 ,NGRID=1000 EPSILON= 0.005000, Non-Blocking Finite differential calculation time = 2.026558e-05
+size=8 ,rank=6 ,NGRID=1000 EPSILON= 0.005000, Non-Blocking Finite differential calculation time = 4.696846e-05
+size=8 ,rank=7 ,NGRID=1000 EPSILON= 0.005000, Non-Blocking Finite differential calculation time = 3.337860e-05
+size=8 ,rank=0 ,NGRID=1000 EPSILON= 0.005000, Non-Blocking Finite differential calculation time = 1.096725e-05
+size=8 ,rank=1 ,NGRID=1000 EPSILON= 0.005000, Non-Blocking Finite differential calculation time = 2.398491e-04
+size=8 ,rank=2 ,NGRID=1000 EPSILON= 0.005000, Non-Blocking Finite differential calculation time = 1.358986e-05
+size=8 ,rank=3 ,NGRID=1000 EPSILON= 0.005000, Non-Blocking Finite differential calculation time = 2.441406e-04
+size=8 ,rank=6 ,NGRID=1000 EPSILON= 0.005000, Blocking Finite differential calculation time = 6.914139e-06
+size=8 ,rank=7 ,NGRID=1000 EPSILON= 0.005000, Blocking Finite differential calculation time = 1.645088e-05
+size=8 ,rank=0 ,NGRID=1000 EPSILON= 0.005000, Blocking Finite differential calculation time = 5.006790e-06
+size=8 ,rank=1 ,NGRID=1000 EPSILON= 0.005000, Blocking Finite differential calculation time = 2.462864e-04
+size=8 ,rank=2 ,NGRID=1000 EPSILON= 0.005000, Blocking Finite differential calculation time = 2.441406e-04
+size=8 ,rank=3 ,NGRID=1000 EPSILON= 0.005000, Blocking Finite differential calculation time = 6.675720e-06
+size=8 ,rank=4 ,NGRID=1000 EPSILON= 0.005000, Blocking Finite differential calculation time = 2.491474e-04
+size=8 ,rank=5 ,NGRID=1000 EPSILON= 0.005000, Blocking Finite differential calculation time = 2.498627e-04
+size=8 ,rank=3 ,NGRID=1000 EPSILON= 0.005000, Non-Blocking Finite differential calculation time = 7.867813e-06
+size=8 ,rank=4 ,NGRID=1000 EPSILON= 0.005000, Non-Blocking Finite differential calculation time = 6.914139e-06
+size=8 ,rank=5 ,NGRID=1000 EPSILON= 0.005000, Non-Blocking Finite differential calculation time = 1.335144e-05
+size=8 ,rank=6 ,NGRID=1000 EPSILON= 0.005000, Non-Blocking Finite differential calculation time = 5.722046e-06	
+size=8 ,rank=7 ,NGRID=1000 EPSILON= 0.005000, Non-Blocking Finite differential calculation time = 1.478195e-05
+size=8 ,rank=0 ,NGRID=1000 EPSILON= 0.005000, Non-Blocking Finite differential calculation time = 2.069473e-04
+size=8 ,rank=1 ,NGRID=1000 EPSILON= 0.005000, Non-Blocking Finite differential calculation time = 7.152557e-06
+size=8 ,rank=2 ,NGRID=1000 EPSILON= 0.005000, Non-Blocking Finite differential calculation time = 2.129078e-04
+
+Blocking and manual reduction				
+Nodes/Processors	NGRID	Average error	Standard Deviation	Total Time (Root)
+1/2	1000	6.26E-06	2.33E-14	5.79E-03
+1/2	2000	1.56E-06	8.17E-14	8.84E-03
+1/2	5000	2.50E-07	1.13E-13	1.73E-02
+1/2	10000	6.25E-08	4.01E-13	2.59E-02
+1/2	20000	1.56E-08	8.18E-13	4.31E-02
+
+As the number of grid points are increased, the average error goes down as we are able to more accurately determine the actual value, resulting in a smaller
+difference between the actual and calculated value. The time required, goes up as expected as there are more points that are iterated through.
+
+Blocking and manual reduction				
+Nodes/Processors	Epsilon	Average error	Standard Deviation	Total Time (Root)
+1/2	0.0005	6.26E-06	2.33E-14	4.55E-03
+1/2	0.005	6.26E-06	2.33E-14	6.20E-03
+1/2	0.1	6.26E-06	2.33E-14	3.53E-03
+1/2	0.5	6.26E-06	2.33E-14	6.31E-03
+1/2	1	6.26E-06	2.33E-14	5.25E-03
+
+As the epsilon value goes up, the average error and standard deviation are unaffected since the changing epsilon value only affects the number of approximated values
+that are calculated, not help determine how accurate our approximated values are.
