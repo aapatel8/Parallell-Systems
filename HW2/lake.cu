@@ -33,7 +33,7 @@
 
 
 void init(double *u, double *pebbles, int n);
-void evolve(double *un, double *uc, double *uo, double *pebbles, int n, double h, double dt, double t);
+void evolve13pt (double *un, double *uc, double *uo, double *pebbles, int n, double h, double dt, double t);
 int tpdt(double *t, double dt, double end_time);
 void print_heatmap(const char *filename, double *u, int n, double h);
 void init_pebbles(double *p, int pn, int n);
@@ -126,7 +126,7 @@ void run_cpu(double *u, double *u0, double *u1, double *pebbles, int n, double h
 
     while(1)
     {
-        evolve(un, uc, uo, pebbles, n, h, dt, t);
+        evolve13pt (un, uc, uo, pebbles, n, h, dt, t);
 
         memcpy(uo, uc, sizeof(double) * n * n);
         memcpy(uc, un, sizeof(double) * n * n);
@@ -210,7 +210,7 @@ void evolve_old(double *un, double *uc, double *uo, double *pebbles, int n, doub
 }
 
 
-void evolve(double *un, double *uc, double *uo, double *pebbles, int n, double h, double dt, double t)
+void evolve13pt(double *un, double *uc, double *uo, double *pebbles, int n, double h, double dt, double t)
 {
     int i, j, idx;
 
