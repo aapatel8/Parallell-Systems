@@ -15,6 +15,23 @@
 #define TSCALE 1.0
 #define VSQR 0.1
 
+
+#define NORTH(idx,n) (idx - n)
+#define SOUTH(idx,n) (idx + n)
+#define EAST(idx) (idx+1)
+#define WEST(idx) (idx-1)
+
+#define NORTHNORTH(idx,n) (idx - 2*n)
+#define SOUTHSOUTH(idx,n) (idx + 2*n)
+#define EASTEAST(idx) (idx + 2)
+#define WESTWEST(idx) (idx - 2)
+
+#define NORTHEAST(idx,n) (NORTH(idx,n)+1)
+#define NORTHWEST(idx,n) (NORTH(idx,n)-1)
+#define SOUTHEAST(idx,n) (SOUTH(idx,n)+1)
+#define SOUTHWEST(idx,n) (SOUTH(idx,n)-1)
+
+
 void init(double *u, double *pebbles, int n);
 void evolve(double *un, double *uc, double *uo, double *pebbles, int n, double h, double dt, double t);
 int tpdt(double *t, double dt, double end_time);
@@ -164,6 +181,7 @@ void init(double *u, double *pebbles, int n)
   }
 }
 
+
 void evolve(double *un, double *uc, double *uo, double *pebbles, int n, double h, double dt, double t)
 {
   int i, j, idx;
@@ -174,13 +192,19 @@ void evolve(double *un, double *uc, double *uo, double *pebbles, int n, double h
     {
       idx = j + i * n;
 
-      if( i == 0 || i == n - 1 || j == 0 || j == n - 1)
+      if( i <= 1 || i >= n - 2 || j <= 1 || j >= n - 2 )
       {
         un[idx] = 0.;
       }
       else
       {
-        un[idx] = 2*uc[idx] - uo[idx] + VSQR *(dt * dt) *((uc[idx-1] + uc[idx+1] + uc[idx + n] + uc[idx - n] - 4 * uc[idx])/(h * h) + f(pebbles[idx],t));
+          un[idx] = 2*uc[idx] - uo[idx] + VSQR *(dt * dt) * (( WEST(idx) + 
+                    EAST(idx) + NORTH(idx,n) + SOUTH(idx,n) + 0.25*(NORTHWEST(idx,n) + 
+                    NORTHEAST(idx,n) + SOUTHWEST(idx,n) + SOUTHEAST(idx,n)) + 
+                    0.125*(WESTWEST(idx) + EASTEAST(idx) + NORTHNORTH(idx,n) +
+                    SOUTHSOUTH(idx,n)) - 6 * uc[idx])/(h * h) + f(pebbles[idx],t));
+        
+        //un[idx] = 2*uc[idx] - uo[idx] + VSQR *(dt * dt) *((uc[idx-1] + uc[idx+1] + uc[idx + n] + uc[idx - n] - 4 * uc[idx])/(h * h) + f(pebbles[idx],t));
       }
     }
   }
