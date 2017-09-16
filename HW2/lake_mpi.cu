@@ -15,6 +15,7 @@
 #include <string.h>
 #include <math.h>
 #include <sys/time.h>
+#include "mpi.h"
 #include "mpilake.h"
 
 #define _USE_MATH_DEFINES
@@ -35,6 +36,7 @@ double f(double p, double t);
 void init(double *u, double *pebbles, int n);
 void init_pebbles(int *loc, double *vals, double *pebs, int pn, int n);
 void pick_pebble_locations(int *loc, double *p, int pn, int n);
+void print_heatmap(const char *filename, double *u, int n, double h);
 
 int main(int argc, char *argv[]) {
     if(argc != 5)
@@ -43,7 +45,10 @@ int main(int argc, char *argv[]) {
             return 0;
         }
     int i;
+    /* MPI related variables */
     int rank, size;
+    MPI_Status status;
+
     int     npoints   = atoi(argv[1]);  // 128
     int     npebs     = atoi(argv[2]);  // 5
     double  end_time  = (double)atof(argv[3]);  //1.0
@@ -52,7 +57,7 @@ int main(int argc, char *argv[]) {
     double *u_i0, *u_i1;
     double *u_gpu, *pebs;
     double h;
-    
+    h = (XMAX - XMIN)/npoints; 
     /*
         Allocate memory for lake and pebbles. 
     */
@@ -78,7 +83,7 @@ int main(int argc, char *argv[]) {
     MPI_Comm_size(MPI_COMM_WORLD, &size);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     
-    if (rank == ROOT) {
+    if ( ROOT == rank) {
         pick_pebble_locations(loc, peb_vals, npebs, npoints);
         //TODO: this loc and peb_vals have to be send by root.
         for(i=1; i< size; i++){
@@ -87,16 +92,19 @@ int main(int argc, char *argv[]) {
         }
     } else {
         // TODO: Receive the pebbles location and value from ROOT.
-        MPI_Recv(loc, npebs, MPI_INT, ROOT, TAG_PEB_LOCS, MPI_COMM_WORLD);
-        MPI_Recv(peb_vals, npebs, MPI_DOUBLE, ROOT, TAG_PEB_VALS, MPI_COMM_WORLD);
+        MPI_Recv(loc, npebs, MPI_INT, ROOT, TAG_PEB_LOCS, MPI_COMM_WORLD, &status);
+        MPI_Recv(peb_vals, npebs, MPI_DOUBLE, ROOT, TAG_PEB_VALS, MPI_COMM_WORLD, &status);
+        
     }
-    
-    init_pebbles(loc, peb_vals, npebs, npoints);
+    printf("\n Rank %d has: ", rank);
+    for(i=0; i<npebs; i++)
+        printf("\t %d=%f ",loc[i], peb_vals[i]);
+    init_pebbles(loc, peb_vals, pebs, npebs, npoints);
     init(u_i0, pebs, npoints);
     init(u_i1, pebs, npoints);
-    
-    print_heatmap("lake_i_mpi.dat", pebs, npoints, h);
-    
+    if(ROOT == rank ){
+        print_heatmap("lake_i_mpi.dat", pebs, npoints, h);
+    }
     // ALL processes should sync here.
     run_gpu(u_gpu, u_i0, u_i1, pebs, npoints, h, end_time, nthreads); 
 
@@ -131,7 +139,7 @@ void pick_pebble_locations(int *loc, double *p, int pn, int n) {
     int sz;
     if (loc == NULL || p == NULL){
         printf("Location or pebbles array is NULL");
-        return
+        return;
     }
     
     srand(time(NULL));
@@ -162,3 +170,21 @@ void init(double *u, double *pebbles, int n) {
 double f(double p, double t) {
     return -expf(-TSCALE * t) * p;
 }
+
+void print_heatmap(const char *filename, double *u, int n, double h) {
+    int i, j, idx;
+
+    FILE *fp = fopen(filename, "w");  
+
+    for( i = 0; i < n; i++ )
+    {
+        for( j = 0; j < n; j++ )
+        {
+            idx = j + i * n;
+            fprintf(fp, "%f %f %f\n", i*h, j*h, u[idx]);
+        }
+    }
+
+    fclose(fp);
+} 
+

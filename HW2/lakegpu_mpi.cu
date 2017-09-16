@@ -98,11 +98,11 @@ void run_gpu(double *u, double *u0, double *u1, double *pebbles, int n, double h
        Dividing this way maintains the continous addressing scheme of a 1D 
        array at a grid.
     */
-    int npoints_y = npoints/GPU_COUNT;
-    int npoints_x = npoints;
+    int npoints_y = n/GPU_COUNT;
+    int npoints_x = n;
      
-    int nblocks_y = npoints_y/nthreads;
-    int nblocks_x = npoints_x/nthreads;
+    int nblocks_y = n/nthreads;
+    int nblocks_x = n/nthreads;
     
         /* Set up device timers */  
 	CUDA_CALL(cudaSetDevice(0));
