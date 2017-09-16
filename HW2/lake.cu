@@ -3,6 +3,7 @@
 #include <string.h>
 #include <math.h>
 #include <sys/time.h>
+#include "lake.h"
 
 #define _USE_MATH_DEFINES
 
@@ -12,24 +13,6 @@
 #define YMAX 1.0
 
 #define MAX_PSZ 10
-#define TSCALE 1.0
-#define VSQR 0.1
-
-
-#define NORTH(idx,n) uc[idx - n]
-#define SOUTH(idx,n) uc[idx + n]
-#define EAST(idx) uc[idx+1]
-#define WEST(idx) uc[idx-1]
-
-#define NORTHNORTH(idx,n) uc[idx - 2*n]
-#define SOUTHSOUTH(idx,n) uc[idx + 2*n]
-#define EASTEAST(idx) uc[idx + 2]
-#define WESTWEST(idx) uc[idx - 2]
-
-#define NORTHEAST(idx,n) uc[idx-n+1]
-#define NORTHWEST(idx,n) uc[idx-n-1]
-#define SOUTHEAST(idx,n) uc[idx+n+1]
-#define SOUTHWEST(idx,n) uc[idx+n-1]
 
 
 void init(double *u, double *pebbles, int n);
@@ -38,9 +21,6 @@ int tpdt(double *t, double dt, double end_time);
 void print_heatmap(const char *filename, double *u, int n, double h);
 void init_pebbles(double *p, int pn, int n);
 
-void run_cpu(double *u, double *u0, double *u1, double *pebbles, int n, double h, double end_time);
-
-extern void run_gpu(double *u, double *u0, double *u1, double *pebbles, int n, double h, double end_time, int nthreads);
 
 int main(int argc, char *argv[])
 {
@@ -186,7 +166,7 @@ void init(double *u, double *pebbles, int n)
 }
 
 
-void evolve_old(double *un, double *uc, double *uo, double *pebbles, int n, double h, double dt, double t)
+void evolve13pt(double *un, double *uc, double *uo, double *pebbles, int n, double h, double dt, double t)
 {
     int i, j, idx;
 
@@ -214,7 +194,7 @@ void evolve_old(double *un, double *uc, double *uo, double *pebbles, int n, doub
 }
 
 
-void evolve13pt(double *un, double *uc, double *uo, double *pebbles, int n, double h, double dt, double t)
+void evolve_old(double *un, double *uc, double *uo, double *pebbles, int n, double h, double dt, double t)
 {
     int i, j, idx;
 
