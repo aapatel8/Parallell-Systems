@@ -86,6 +86,7 @@ __global__ void evolve13GPU(double *un, double *uc, double *uo, double *pebbles,
     int n = x * a;
     //int idx = (a*x) *(f*b) + (a*x)*d + a*e + c;
     // or 
+
     int idx = j + i * n;
     int north = idx - n;
     int south = idx + n;
@@ -118,6 +119,13 @@ __global__ void copyPointersAround(double *un, double *uc, double *uo){
     uo = uc;
     uc = un;
     un = temp;
+}
+
+__global__ void copyLakes(double *uo_d, double *uc_d, double *un_d){
+        idx = (blockDim.x * gridDim.x * blockIdx.y * blockDim.y) + (blockDim.x * gridDim.x * threadIdx.y + blockDim.x * blockIdx.x + threadIdx.x;
+        
+        uo_d[idx] = uc_d[idx];
+        uc_d[idx] = un_d[idx];
 }
 
 int tpdt_2(double *t, double dt, double tf)
@@ -181,7 +189,8 @@ void run_gpu(double *u, double *u0, double *u1, double *pebbles, int n, double h
         // Call evolve kernel
         evolve13GPU<<<dim3(nblocks, nblocks), dim3(nthreads, nthreads) >>>(un_d, uc_d, uo_d, pebbles_d, h_d, dt_d, t_d);
         // call the kernel to Copy pointers around.
-        copyPointersAround<<<1,1>>>(un_d, uc_d, uo_d);
+        //copyPointersAround<<<1,1>>>(un_d, uc_d, uo_d);
+        copyLakes<<<dim3(nblocks, nblocks), dim3(nthreads, nthreads)>>>(uo_d, uc_d, un_d)
         if(!tpdt_2(&t_h, dt_h, end_time)) break;
     }
     
