@@ -127,10 +127,10 @@ void run_cpu(double *u, double *u0, double *u1, double *pebbles, int n, double h
     while(1)
     {
         evolve13pt (un, uc, uo, pebbles, n, h, dt, t);
-        temp = uo;
+        tmp = uo;
         uo = uc;
         uc = un;
-        un = temp;
+        un = tmp;
 /*
         memcpy(uo, uc, sizeof(double) * n * n);
         memcpy(uc, un, sizeof(double) * n * n);
