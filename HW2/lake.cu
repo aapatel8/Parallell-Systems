@@ -111,7 +111,7 @@ int main(int argc, char *argv[])
 
 void run_cpu(double *u, double *u0, double *u1, double *pebbles, int n, double h, double end_time)
 {
-    double *un, *uc, *uo;
+    double *un, *uc, *uo, *tmp;
     double t, dt;
 
     un = (double*)malloc(sizeof(double) * n * n);
@@ -127,10 +127,14 @@ void run_cpu(double *u, double *u0, double *u1, double *pebbles, int n, double h
     while(1)
     {
         evolve13pt (un, uc, uo, pebbles, n, h, dt, t);
-
+        temp = uo;
+        uo = uc;
+        uc = un;
+        un = temp;
+/*
         memcpy(uo, uc, sizeof(double) * n * n);
         memcpy(uc, un, sizeof(double) * n * n);
-
+*/
         if(!tpdt(&t,dt,end_time)) break;
     }
 
