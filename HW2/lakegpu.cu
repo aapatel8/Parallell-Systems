@@ -65,35 +65,20 @@ inline void __cudaCheckError( const char *file, const int line )
   return;
 }
 
-__device__ int tpdt_2(double *t, double dt, double tf)
+int tpdt_2(double *t, double dt, double tf)
 {
     if((*t) + dt > tf) return 0;
     (*t) = (*t) + dt;
     return 1;
 }
 
-__device__ double f(double p, double t)
+__device__ double f_2(double p, double t)
 {
     return -expf(-TSCALE * t) * p;
 }
 
-__global__ evolve13GPU(double *un, double *uc, double *uo, double *pebbles, int n, double h, double dt, double t) {
+__global__ void evolve13GPU(double *un, double *uc, double *uo, double *pebbles, int n, double h, double dt, double t) {
     
-    /*
-    int a = gridDim.x;
-    int b = gridDim.y;
-    
-    int c = threadIdx.x;
-    int d = threadIdx.y;
-    
-    int e = blockDim.x;
-    int f = blockDim.y;
-    
-    int g = blockIdx.x;
-    int h = blockIdx.y;
-    
-    int my_index = (a*e*f*h) + (d*e*a) + (g*e) + c;
-    */
     int idx = (gridDim.x * blockDim.x * blockDim.y * blockIdx.y) + 
               (threadIdx.y * blockDim.x * gridDim.x) +
               (blockIdx.x * blockDim.x) + threadIdx.x;
@@ -107,7 +92,7 @@ __global__ evolve13GPU(double *un, double *uc, double *uo, double *pebbles, int 
                             EAST(idx) + NORTH(idx,n) + SOUTH(idx,n) + 0.25*(NORTHWEST(idx,n) + 
                                 NORTHEAST(idx,n) + SOUTHWEST(idx,n) + SOUTHEAST(idx,n)) + 
                             0.125*(WESTWEST(idx) + EASTEAST(idx) + NORTHNORTH(idx,n) +
-                                SOUTHSOUTH(idx,n)) - 6 * uc[idx])/(h * h) + f(pebbles[idx],t));
+                                SOUTHSOUTH(idx,n)) - 6 * uc[idx])/(h * h) + f_2(pebbles[idx],t));
     }
 }
 
@@ -130,14 +115,14 @@ void run_gpu(double *u, double *u0, double *u1, double *pebbles, int n, double h
 	CUDA_CALL(cudaEventCreate(&kstop));
 
 	/* HW2: Add CUDA kernel call preperation code here */
-    cudaMalloc( (void **)&un_d, (sizeof double) * n *n);
-    cudaMalloc( (void **)&uc_d, (sizeof double) * n *n);
-    cudaMalloc( (void **)&uo_d, (sizeof double) * n *n);
-    cudaMalloc( (void **)&pebbles_d, (sizeof double) * n *n);
+    cudaMalloc( (void **)&un_d, sizeof( double) * n *n);
+    cudaMalloc( (void **)&uc_d, sizeof( double) * n *n);
+    cudaMalloc( (void **)&uo_d, sizeof( double) * n *n);
+    cudaMalloc( (void **)&pebbles_d, sizeof (double) * n *n);
     
-    cudaMemcpy(uo_d, u0, (sizeof double)*n*n, cudaMemcpyHostToDevice);
-    cudaMemcpy(uc_d, u1, (sizeof double)*n*n, cudaMemcpyHostToDevice);
-    cudaMemcpy(pebbles_d, pebbles, (sizeof double)*n*n, cudaMemcpyHostToDevice);
+    cudaMemcpy(uo_d, u0, sizeof (double)*n*n, cudaMemcpyHostToDevice);
+    cudaMemcpy(uc_d, u1, sizeof (double)*n*n, cudaMemcpyHostToDevice);
+    cudaMemcpy(pebbles_d, pebbles, sizeof (double)*n*n, cudaMemcpyHostToDevice);
     
 	/* Start GPU computation timer */
 	CUDA_CALL(cudaEventRecord(kstart, 0));
@@ -151,7 +136,7 @@ void run_gpu(double *u, double *u0, double *u1, double *pebbles, int n, double h
         un_d = tmp;
         if(!tpdt_2(&t, dt, end_time)) break;
     }
-    cudaMemcpy(u, uc_d, (sizeof double)*n*n, cudaMemcpyDeviceToHost);
+    cudaMemcpy(u, uc_d, sizeof (double)*n*n, cudaMemcpyDeviceToHost);
     
         /* Stop GPU computation timer */
 	CUDA_CALL(cudaEventRecord(kstop, 0));
