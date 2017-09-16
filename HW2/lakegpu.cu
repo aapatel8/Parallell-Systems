@@ -4,6 +4,8 @@
 #include <time.h>
 
 #define __DEBUG
+#define TSCALE 1.0
+#define VSQR 0.1
 
 #define CUDA_CALL( err )     __cudaSafeCall( err, __FILE__, __LINE__ )
 #define CUDA_CHK_ERR() __cudaCheckError(__FILE__,__LINE__)
@@ -73,7 +75,7 @@ __global__ void evolve13GPU(double *un, double *uc, double *uo, double *pebbles,
     int a = blockDim.x;
     int b = blockDim.y;
     int x = gridDim.x;
-    int y = gridDim.y;
+    //int y = gridDim.y;
     int c = threadIdx.x;
     int d = threadIdx.y;
     int e = blockIdx.x;
@@ -102,11 +104,11 @@ __global__ void evolve13GPU(double *un, double *uc, double *uo, double *pebbles,
     if (i <= 1 || i >= n-2 || j <= 1 || j >= n-1){
         un[idx] = 0;
     } else {
-        un[idx] = 2*uc[idx] - uo[idx]  + VSQR *(dt * dt) * (( uc[west] + 
+        un[idx] = 2*uc[idx] - uo[idx]  + VSQR *(*dt * *dt) * (( uc[west] + 
                             uc[east] + uc[north] + uc[south] + 0.25*(uc[northwest] +
                             uc[northeast] + uc[southwest] + uc[southeast]) + 
                             0.125*(uc[westwest] + uc[easteast] + uc[northnorth] +
-                            uc[southsouth]) - 6 * uc[idx])/(h * h) + f_2(pebbles[idx],t));
+                            uc[southsouth]) - 6 * uc[idx])/(*h * *h) + f_2(pebbles[idx],*t));
     }
 }
 
@@ -130,11 +132,11 @@ void run_gpu(double *u, double *u0, double *u1, double *pebbles, int n, double h
 {
 	cudaEvent_t kstart, kstop;
 	float ktime;
-    int nblocks = npoints/nthreads; 
+    int nblocks = n/nthreads; 
     
-    if (0 != (npoints % nthreads)){
-        printf("\nInvalid Input(npoints= %d, nthreads= %d): npoints should be perfectly divisible by nthreads ", npoints, nthreads);
-        return -1;
+    if (0 != (n% nthreads)){
+        printf("\nInvalid Input(npoints= %d, nthreads= %d): npoints should be divisible by nthreads ", n, nthreads);
+        return ;
     }
     
     printf("\nGPU method called\n");
@@ -167,9 +169,9 @@ void run_gpu(double *u, double *u0, double *u1, double *pebbles, int n, double h
     cudaMemcpy(uo_d, u0, n*n, cudaMemcpyHostToDevice);
     cudaMemcpy(uc_d, u1, n*n, cudaMemcpyHostToDevice);
     cudaMemcpy(pebbles_d, pebbles, n*n, cudaMemcpyHostToDevice);
-    cudaMemcpy(h_d, h, 1, cudaMemcpyHostToDevice);
-    cudaMemcpy(dt_d, dt_h, 1, cudaMemcpyHostToDevice);
-    cudaMemcpy(t_d, t_h, 1, cudaMemcpyHostToDevice);
+    cudaMemcpy(h_d, &h, 1, cudaMemcpyHostToDevice);
+    cudaMemcpy(dt_d, &dt_h, 1, cudaMemcpyHostToDevice);
+    cudaMemcpy(t_d, &t_h, 1, cudaMemcpyHostToDevice);
     
 	/* Start GPU computation timer */
 	CUDA_CALL(cudaEventRecord(kstart, 0));
@@ -180,7 +182,7 @@ void run_gpu(double *u, double *u0, double *u1, double *pebbles, int n, double h
         evolve13GPU<<<dim3(nblocks, nblocks), dim3(nthreads, nthreads) >>>(un_d, uc_d, uo_d, pebbles_d, h_d, dt_d, t_d);
         // call the kernel to Copy pointers around.
         copyPointersAround<<<1,1>>>(un_d, uc_d, uo_d);
-        if(!tpdt_2(&t, dt, end_time)) break;
+        if(!tpdt_2(&t_h, dt_h, end_time)) break;
     }
     
     /* Stop GPU computation timer */
