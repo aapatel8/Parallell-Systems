@@ -97,9 +97,9 @@ int main(int argc, char *argv[])
                 gpu_start.tv_sec + gpu_start.tv_usec * 1e-6));
     printf("GPU took %f seconds\n", elapsed_gpu);
 
-
-    print_heatmap("lake_f.dat", u_cpu, npoints, h);
-
+    print_heatmap("lake_f_cpu.dat", u_cpu, npoints, h);
+    print_heatmap("lake_f.dat", u_gpu, npoints, h);
+    
     free(u_i0);
     free(u_i1);
     free(pebs);

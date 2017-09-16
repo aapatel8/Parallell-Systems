@@ -71,46 +71,14 @@ __device__ double f_2(double p, double t)
     return -expf(-TSCALE * t) * p;
 }
 
-__global__ void evolve13GPU(double *un, double *uc, double *uo, double *pebbles, double *h, double *dt, double *t) {
-    int a = blockDim.x;
-    int b = blockDim.y;
-    int x = gridDim.x;
-    //int y = gridDim.y;
-    int c = threadIdx.x;
-    int d = threadIdx.y;
-    int e = blockIdx.x;
-    int f = blockIdx.y;
-    int j = (a * e) + c;
-    int i = (b * f) + d;
-    
-    int n = x * a;
-    //int idx = (a*x) *(f*b) + (a*x)*d + a*e + c;
-    // or 
+__global__ void evolve13GPU(double *un, double *uc, double *uo, double *pebbles, int n, double *h, double *dt, double *t) {
+  int idx = (blockIdx.x * gridDim.x + blockIdx.y) * blockDim.x * blockDim.y + threadIdx.x * blockDim.x + threadIdx.y;
+  int i = idx / n;
+  int j = idx % n;
+  if(!(i == 0 || i == n - 1 || j == 0 || j == n - 1))
+    un[idx] = 2*uc[idx] - uo[idx] + VSQR *(dt * dt) *((uc[idx-1] + uc[idx+1] + uc[idx + n] + uc[idx - n] + 0.25*(uc[idx + n - 1] + uc[idx + n + 1] + uc[idx - n - 1] + uc[idx - n + 1])- 5 * uc[idx])/(h * h) + f_CUDA(pebbles[idx],t));
+  else un[idx] = 0.;
 
-    int idx = j + i * n;
-    int north = idx - n;
-    int south = idx + n;
-    int east = idx + 1;
-    int west = idx -1;
-    int northnorth = idx - 2*n;
-    int southsouth = idx + 2*n;
-    int easteast   = idx + 2;
-    int westwest   = idx - 1;
-    
-    int northeast = idx-n + 1;
-    int northwest = idx-n-1;
-    int southeast = idx+n+1;
-    int southwest = idx+n-1;
-    
-    if (i <= 1 || i >= n-2 || j <= 1 || j >= n-1){
-        un[idx] = 0;
-    } else {
-        un[idx] = 2*uc[idx] - uo[idx]  + VSQR *(*dt * *dt) * (( uc[west] + 
-                            uc[east] + uc[north] + uc[south] + 0.25*(uc[northwest] +
-                            uc[northeast] + uc[southwest] + uc[southeast]) + 
-                            0.125*(uc[westwest] + uc[easteast] + uc[northnorth] +
-                            uc[southsouth]) - 6 * uc[idx])/(*h * *h) + f_2(pebbles[idx],*t));
-    }
 }
 
 __global__ void copyPointersAround(double *un, double *uc, double *uo){
@@ -150,13 +118,13 @@ void run_gpu(double *u, double *u0, double *u1, double *pebbles, int n, double h
     
     printf("\nGPU method called\n");
 	/* HW2: Define your local variables here */
-    double *un_d, *uc_d, *uo_d, *pebbles_d;
-    double *h_d, *dt_d, *t_d;
+    double *un_d, *uc_d, *uo_d, *pebbles_d, *tmp;
+    //double h_d, dt_d, t_d;
 
-    double t_h, dt_h;
+    double t, dt;
     
-    t_h = 0;
-    dt_h = h/2;
+    t = 0;
+    dt = h/2;
     
 
     
@@ -171,16 +139,16 @@ void run_gpu(double *u, double *u0, double *u1, double *pebbles, int n, double h
     cudaMalloc( (void **) &uc_d, sizeof(double) * n * n);
     cudaMalloc( (void **) &uo_d, sizeof(double) * n * n);
     cudaMalloc( (void **) &pebbles_d, sizeof(double) * n * n);
-    cudaMalloc( (void **) &h_d, sizeof(double) *1);
-    cudaMalloc( (void **) &dt_d, sizeof(double) * 1);
-    cudaMalloc( (void **) &t_d, sizeof(double) * 1);
+//    cudaMalloc( (void **) &h_d, sizeof(double) *1);
+  //  cudaMalloc( (void **) &dt_d, sizeof(double) * 1);
+    //cudaMalloc( (void **) &t_d, sizeof(double) * 1);
     
     cudaMemcpy(uo_d, u0, n*n, cudaMemcpyHostToDevice);
     cudaMemcpy(uc_d, u1, n*n, cudaMemcpyHostToDevice);
     cudaMemcpy(pebbles_d, pebbles, n*n, cudaMemcpyHostToDevice);
-    cudaMemcpy(h_d, &h, 1, cudaMemcpyHostToDevice);
-    cudaMemcpy(dt_d, &dt_h, 1, cudaMemcpyHostToDevice);
-    cudaMemcpy(t_d, &t_h, 1, cudaMemcpyHostToDevice);
+    //cudaMemcpy(h_d, &h, 1, cudaMemcpyHostToDevice);
+    //cudaMemcpy(dt_d, &dt_h, 1, cudaMemcpyHostToDevice);
+    //cudaMemcpy(t_d, &t_h, 1, cudaMemcpyHostToDevice);
     
 	/* Start GPU computation timer */
 	CUDA_CALL(cudaEventRecord(kstart, 0));
@@ -188,11 +156,15 @@ void run_gpu(double *u, double *u0, double *u1, double *pebbles, int n, double h
 	/* HW2: Add main lake simulation loop here */
     while(1){
         // Call evolve kernel
-        evolve13GPU<<<dim3(nblocks, nblocks), dim3(nthreads, nthreads) >>>(un_d, uc_d, uo_d, pebbles_d, h_d, dt_d, t_d);
+        evolve13GPU<<<dim3(nblocks, nblocks,1), dim3(nthreads, nthreads,1) >>>(un_d, uc_d, uo_d, pebbles_d,n, h, dt, t);
         // call the kernel to Copy pointers around.
         //copyPointersAround<<<1,1>>>(un_d, uc_d, uo_d);
-        copyLakes<<<dim3(nblocks, nblocks), dim3(nthreads, nthreads)>>>(uo_d, uc_d, un_d);
-        if(!tpdt_2(&t_h, dt_h, end_time)) break;
+        //copyLakes<<<dim3(nblocks, nblocks), dim3(nthreads, nthreads)>>>(uo_d, uc_d, un_d);
+        temp = uo;
+        uo = uc;
+        uc = un;
+        un = temp;
+        if(!tpdt_2(&t, dt, end_time)) break;
     }
     
     /* Stop GPU computation timer */
@@ -212,4 +184,8 @@ void run_gpu(double *u, double *u0, double *u1, double *pebbles, int n, double h
     cudaFree(un_d);
     cudaFree(uc_d);
     cudaFree(uo_d);
+    cudaFree(pebbles_d);
+    //cudaFree(h_d);
+    //cudaFree(dt_d);
+    //cudaFree(t_d);
 }
