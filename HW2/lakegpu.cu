@@ -115,14 +115,15 @@ void run_gpu(double *u, double *u0, double *u1, double *pebbles, int n, double h
 	CUDA_CALL(cudaEventCreate(&kstop));
 
 	/* HW2: Add CUDA kernel call preperation code here */
-    cudaMalloc( (void **)&un_d, sizeof( double) * n *n);
-    cudaMalloc( (void **)&uc_d, sizeof( double) * n *n);
-    cudaMalloc( (void **)&uo_d, sizeof( double) * n *n);
-    cudaMalloc( (void **)&pebbles_d, sizeof (double) * n *n);
+    size_t tot_area = sizeof( double) * n *n;
+    cudaMalloc( (void **)&un_d, tot_area);
+    cudaMalloc( (void **)&uc_d, tot_area);
+    cudaMalloc( (void **)&uo_d, tot_area);
+    cudaMalloc( (void **)&pebbles_d, tot_area);
     
-    cudaMemcpy(uo_d, u0, sizeof (double)*n*n, cudaMemcpyHostToDevice);
-    cudaMemcpy(uc_d, u1, sizeof (double)*n*n, cudaMemcpyHostToDevice);
-    cudaMemcpy(pebbles_d, pebbles, sizeof (double)*n*n, cudaMemcpyHostToDevice);
+    cudaMemcpy(uo_d, u0, tot_area, cudaMemcpyHostToDevice);
+    cudaMemcpy(uc_d, u1, tot_area, cudaMemcpyHostToDevice);
+    cudaMemcpy(pebbles_d, pebbles, tot_area, cudaMemcpyHostToDevice);
     
 	/* Start GPU computation timer */
 	CUDA_CALL(cudaEventRecord(kstart, 0));
@@ -136,6 +137,8 @@ void run_gpu(double *u, double *u0, double *u1, double *pebbles, int n, double h
         un_d = tmp;
         if(!tpdt_2(&t, dt, end_time)) break;
     }
+    
+    // uc_d shall have the last iterations data to pointer shuffle.
     cudaMemcpy(u, uc_d, sizeof (double)*n*n, cudaMemcpyDeviceToHost);
     
         /* Stop GPU computation timer */
