@@ -15,7 +15,7 @@
 #include <string.h>
 #include <math.h>
 #include <sys/time.h>
-#include "mpi.h"
+#include <mpi.h>
 #include "mpilake.h"
 
 #define _USE_MATH_DEFINES
@@ -24,7 +24,6 @@
 #define XMAX 1.0
 #define YMIN 0.0
 #define YMAX 1.0
-#define ROOT 0
 
 #define MAX_PSZ 10
 

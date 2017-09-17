@@ -16,7 +16,7 @@
 #include <cuda_runtime.h>
 #include <time.h>
 #include "mpilake.h"
-
+#include "mpi.h"
 #define __DEBUG
 
 #define CUDA_CALL( err )     __cudaSafeCall( err, __FILE__, __LINE__ )
@@ -76,6 +76,8 @@ inline void __cudaCheckError( const char *file, const int line ) {
   return;
 }
 
+void custom_memcpy_double(double *dest, double *source, int incr);
+
 int tpdt_2(double *t, double dt, double tf) {
     if((*t) + dt > tf) return 0;
     (*t) = (*t) + dt;
@@ -96,8 +98,8 @@ __global__ void evolve13_gpu_MPI(double *un, double *uc, double *uo, double *peb
               (threadIdx.y * blockDim.x * griddim_x) +
               (block_idx_x * blockDim.x) + threadIdx.x;
               
-    int i = idx/n;
-    int j = idx%n;
+    int i = idx / n;
+    int j = idx % n;
     
     if (i <= 1 || i >= n - 2 || j <= 1 || j >= n - 2) {
         un[idx] = 0.;
@@ -190,11 +192,11 @@ void run_gpu(double *u, double *u0, double *u1, double *pebbles, int npoints, do
             memcpy(dest, recv_a, sizeof(double)*npts);
             dest += npoints;
             memcpy(dest, &recv_a[npts], sizeof(double)*npts);
-/*            if(MPI_SUCCESS != MPI_Waitall(2, send_reqs, send_stats)) {
+            if(MPI_SUCCESS != MPI_Waitall(2, send_reqs, send_stats)) {
                 printf("STAGE 2: Send Waitall Failed\n");
                 exit(-1);
             }
-*/
+
         } else if(1 == rank) {
             MPI_Irecv(recv_a, npoints, MPI_DOUBLE, 3, TAG_3_TO_1, MPI_COMM_WORLD, &recv_reqs[0]);
             MPI_Irecv(recv_b, npoints, MPI_DOUBLE, 0, TAG_0_TO_1, MPI_COMM_WORLD, &recv_reqs[1]);
@@ -238,7 +240,7 @@ void run_gpu(double *u, double *u0, double *u1, double *pebbles, int npoints, do
             dest = &u[npoints*npts+npts];
             custom_memcpy_double(dest, recv_b, npoints);
             
-            dest = &u[npoints*(npts-2)]
+            dest = &u[npoints*(npts-2)];
             memcpy(dest, recv_a, sizeof(double)*npts);
             dest+= npoints;
             memcpy(dest, &recv_a[npts], sizeof(double)*npts);   
@@ -259,7 +261,7 @@ void run_gpu(double *u, double *u0, double *u1, double *pebbles, int npoints, do
                 printf("STAGE 2, rank %d : Receive Waitall Failed \n", rank);
                 exit(-1) ;
             }
-            dest = &u[npoints*npts+npts-2);
+            dest = &u[npoints*npts+npts-2];
             custom_memcpy_double(dest, recv_b, npoints);
             
             dest = &u[npoints*(npts-2) + npts];

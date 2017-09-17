@@ -20,6 +20,7 @@
 
 #define DEBUG_2 0
 
+#define ROOT 0
 /* Communication tags */
 
 #define TAG_PEB_LOCS 1

@@ -7,4 +7,4 @@ lake-mpi: lake_mpi.cu  lakegpu_mpi.cu
 	mpicc lakegpu_mpi.o lake_mpi.o -o lake_mpi -O3 -lm -L/usr/local/cuda/lib64/ -lcudart
 
 clean: 
-	rm -f lake *.o
+	rm -f lake lake-mpi *.o
