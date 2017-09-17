@@ -103,7 +103,9 @@ int main(int argc, char *argv[]) {
     elapsed_gpu = ((gpu_end.tv_sec + gpu_end.tv_usec * 1e-6)-(
                 gpu_start.tv_sec + gpu_start.tv_usec * 1e-6));
     printf("GPU took %f seconds\n", elapsed_gpu);
-    //print_heatmap("lake_f_mpi.dat", u_gpu, npoints, h);
+    char filename[20];
+    sprintf(filename, "lake_f_%d.dat",rank);
+    print_heatmap(filename, u_gpu, npoints, h);
     free(u_i0);
     free(u_i1);
     free(pebs);

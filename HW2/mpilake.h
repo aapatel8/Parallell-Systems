@@ -53,6 +53,6 @@
 #define SOUTHEAST(idx,n) uc[idx+n+1]
 #define SOUTHWEST(idx,n) uc[idx+n-1]
 
-void run_gpu(double *u, double *u0, double *u1, double *pebbles, int n, double h, double end_time, int nthreads, int rank, int size);
+void run_gpu(double *u, double *u0, double *u1, double *pebbles, int npoints, double h, double end_time, int nthreads, int rank, int size);
 
 #endif
