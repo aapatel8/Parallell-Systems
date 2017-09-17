@@ -15,10 +15,10 @@
 #include <stdio.h>
 #include <cuda_runtime.h>
 #include <time.h>
-#include "mpilake.h"
 #include "mpi.h"
-#define __DEBUG
 
+#include "mpilake.h"
+#define __DEBUG
 #define CUDA_CALL( err )     __cudaSafeCall( err, __FILE__, __LINE__ )
 #define CUDA_CHK_ERR() __cudaCheckError(__FILE__,__LINE__)
 
@@ -112,10 +112,11 @@ __global__ void evolve13_gpu_MPI(double *un, double *uc, double *uo, double *peb
     }
 }
 
-void run_gpu(double *u, double *u0, double *u1, double *pebbles, int npoints, double h, double end_time, int nthreads, int rank, int size)
-{
-    if (npoints%GPU_COUNT != 0 || npoints % nthreads != 0 || nthreads * nthreads > MAX_THREADS) {
+void run_gpu(double *u, double *u0, double *u1, double *pebbles, int npoints, double h, double end_time, int nthreads, int rank, int size) {
+
+    if ((npoints % GPU_COUNT != 0) || (npoints % nthreads != 0) || (nthreads * nthreads > MAX_THREADS)) {
         printf("Invalid arguments: Can't launch on GPU");
+        return;
     }
 	/* Divide the (npoints * npoints) sized lake into 4 smaller square grids. */
     int npts = npoints/2;   // = 64
