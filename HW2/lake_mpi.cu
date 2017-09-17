@@ -26,9 +26,6 @@
 #define YMAX 1.0
 #define ROOT 0
 
-#define TAG_PEB_LOCS 1
-#define TAG_PEB_VALS 2
-
 #define MAX_PSZ 10
 
 void pick_pebble_locations(int *loc, double *p, int pn, int n);
@@ -39,8 +36,7 @@ void pick_pebble_locations(int *loc, double *p, int pn, int n);
 void print_heatmap(const char *filename, double *u, int n, double h);
 
 int main(int argc, char *argv[]) {
-    if(argc != 5)
-        {
+    if(argc != 5) {
             printf("Usage: %s npoints npebs time_finish nthreads \n",argv[0]);
             return 0;
         }
@@ -57,6 +53,8 @@ int main(int argc, char *argv[]) {
     double *u_i0, *u_i1;
     double *u_gpu, *pebs;
     double h;
+    double elapsed_gpu;
+    struct timeval gpu_start, gpu_end;
     h = (XMAX - XMIN)/npoints; 
     /*
         Allocate memory for lake and pebbles. 
@@ -67,46 +65,39 @@ int main(int argc, char *argv[]) {
     
     u_gpu = (double *)malloc (sizeof(double) * tot_area);
     
-    if (u_i0 == NULL || u_i1 == NULL || pebs == NULL || u_gpu == NULL){
-        printf("STAGE 1: Memory Allocation failed\n");
-        return -1;
-    }
-    
-    double elapsed_gpu;
-    struct timeval gpu_start, gpu_end;
-    
     /* Initialize pebble locations and values */
     int *loc = (int*) malloc(npebs*sizeof(int));
     double *peb_vals = (double*) malloc(npebs*sizeof(double));
-    
+
+    if (loc== NULL || peb_vals == NULL || u_i0 == NULL || u_i1 == NULL || pebs == NULL || u_gpu == NULL){
+        printf("STAGE 1: Memory Allocation failed\n");
+        return -1;
+    }
+        
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     
     if ( ROOT == rank) {
         pick_pebble_locations(loc, peb_vals, npebs, npoints);
-        //TODO: this loc and peb_vals have to be send by root.
+        //this loc and peb_vals have to be send by root.
         for(i=1; i< size; i++){
             MPI_Send(loc, npebs, MPI_INT, i, TAG_PEB_LOCS, MPI_COMM_WORLD);
             MPI_Send(peb_vals, npebs, MPI_DOUBLE, i, TAG_PEB_VALS, MPI_COMM_WORLD);
         }
     } else {
-        // TODO: Receive the pebbles location and value from ROOT.
+        // Receive the pebbles location and value from ROOT.
         MPI_Recv(loc, npebs, MPI_INT, ROOT, TAG_PEB_LOCS, MPI_COMM_WORLD, &status);
-        MPI_Recv(peb_vals, npebs, MPI_DOUBLE, ROOT, TAG_PEB_VALS, MPI_COMM_WORLD, &status);
-        
+        MPI_Recv(peb_vals, npebs, MPI_DOUBLE, ROOT, TAG_PEB_VALS, MPI_COMM_WORLD, &status);  
     }
-    printf("\n Rank %d has: ", rank);
-    for(i=0; i<npebs; i++)
-        printf("\t %d=%f ",loc[i], peb_vals[i]);
     init_pebbles(loc, peb_vals, pebs, npebs, npoints);
     init(u_i0, pebs, npoints);
     init(u_i1, pebs, npoints);
-    if(ROOT == rank ){
-        print_heatmap("lake_i_mpi.dat", pebs, npoints, h);
+    if(ROOT+1 == rank ){
+        print_heatmap("lake_i_mpi.dat", u_i0, npoints, h);
     }
     // ALL processes should sync here.
-    run_gpu(u_gpu, u_i0, u_i1, pebs, npoints, h, end_time, nthreads); 
+    run_gpu(u_gpu, u_i0, u_i1, pebs, npoints, h, end_time, nthreads, rank, size); 
 
     gettimeofday(&gpu_start, NULL);
     gettimeofday(&gpu_end, NULL);
@@ -118,6 +109,8 @@ int main(int argc, char *argv[]) {
     free(u_i1);
     free(pebs);
     free(u_gpu);
+    free(loc);
+    free(peb_vals);
     MPI_Finalize();
 }
 
