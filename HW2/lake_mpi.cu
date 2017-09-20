@@ -65,7 +65,7 @@ int main(int argc, char *argv[]) {
     u_i1 = (double *)malloc (sizeof(double) * tot_area);
     pebs = (double *)malloc (sizeof(double) * tot_area);
     
-    u_cpu = (double*)malloc(sizeof(double) * narea);
+    u_cpu = (double*)malloc(sizeof(double) * tot_area);
     u_gpu = (double *)malloc (sizeof(double) * tot_area);
     
     /* Initialize pebble locations and values */
@@ -115,7 +115,7 @@ int main(int argc, char *argv[]) {
     gettimeofday(&gpu_end, NULL);
     elapsed_gpu = ((gpu_end.tv_sec + gpu_end.tv_usec * 1e-6)-(
                 gpu_start.tv_sec + gpu_start.tv_usec * 1e-6));
-    printf("GPU took %f seconds\n", elapsed_gpu);
+    printf("GPU on rank %d, took %f seconds\n", rank, elapsed_gpu);
     char filename[20];
     sprintf(filename, "lake_f_%d.dat",rank);
     print_heatmap(filename, u_gpu, npoints, h);
@@ -268,3 +268,11 @@ void evolve13pt(double *un, double *uc, double *uo, double *pebbles, int n, doub
         }
     }
 }
+
+int tpdt(double *t, double dt, double tf)
+{
+    if((*t) + dt > tf) return 0;
+    (*t) = (*t) + dt;
+    return 1;
+}
+

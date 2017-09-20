@@ -54,5 +54,6 @@
 #define SOUTHWEST(idx,n) uc[idx+n-1]
 
 void run_gpu_mpi(double *u, double *u0, double *u1, double *pebbles, int n, double h, double end_time, int nthreads, int rank, int size);
+void run_cpu(double *u, double *u0, double *u1, double *pebbles, int n, double h, double end_time);
 
 #endif

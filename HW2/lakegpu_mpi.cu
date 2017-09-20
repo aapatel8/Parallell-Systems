@@ -125,7 +125,7 @@ void run_gpu_mpi (double *u, double *u0, double *u1, double *pebbles, int npoint
     
     cudaEvent_t kstart, kstop;
 	float ktime;
-    printf("\nGPU method called on GPU # %d out of %d GPUs\n", rank, size);
+    //printf("\nGPU method called on GPU # %d out of %d GPUs\n", rank, size);
 	/* HW2: Define your local variables here */
     double *un_d, *uc_d, *uo_d, *pebbles_d, *tmp;
     double t, dt;
@@ -162,12 +162,12 @@ void run_gpu_mpi (double *u, double *u0, double *u1, double *pebbles, int npoint
     
 	/* Start GPU computation timer */
 	CUDA_CALL(cudaEventRecord(kstart, 0));
-    printf("rank %d, Memory Allocated. Entering While Loop\n",rank);
+    //printf("rank %d, Memory Allocated. Entering While Loop\n",rank);
 
 	/* HW2: Add main lake simulation loop here */
 	while(1){
         // TODO: Evolve Kernel call here
-        printf(".");
+        //printf(".");
         evolve13_gpu_MPI<<<dim3(nblocks, nblocks,1), dim3(nthreads, nthreads, 1)>>>(un_d, uc_d, uo_d, pebbles_d, npoints, h, dt, t, rank);
         cudaMemcpy(u, un_d, tot_area, cudaMemcpyDeviceToHost);
         if(!tpdt_2(&t, dt, end_time)) break;
@@ -286,12 +286,12 @@ void run_gpu_mpi (double *u, double *u0, double *u1, double *pebbles, int npoint
 	CUDA_CALL(cudaEventRecord(kstop, 0));
 	CUDA_CALL(cudaEventSynchronize(kstop));
 	CUDA_CALL(cudaEventElapsedTime(&ktime, kstart, kstop));
-	printf("GPU computation: %f msec\n", ktime);
+	printf("GPU computation on rank %d: %f msec\n",rank, ktime);
 
 	/* HW2: Add post CUDA kernel call processing and cleanup here */
 
 	/* timer cleanup */
-    printf("\nGPU method Done\n");
+    //printf("\nGPU method Done\n");
 
 	CUDA_CALL(cudaEventDestroy(kstart));
 	CUDA_CALL(cudaEventDestroy(kstop));
