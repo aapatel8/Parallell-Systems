@@ -27,11 +27,14 @@
 
 #define MAX_PSZ 10
 
+void evolve13pt (double *un, double *uc, double *uo, double *pebbles, int n, double h, double dt, double t);
+int tpdt(double *t, double dt, double end_time);
+void init_pebbles(double *p, int pn, int n);
+
 void pick_pebble_locations(int *loc, double *p, int pn, int n);
 double f(double p, double t);
 void init(double *u, double *pebbles, int n);
-void init_pebbles(int *loc, double *vals, double *pebs, int pn, int n);
-void pick_pebble_locations(int *loc, double *p, int pn, int n);
+void init_pebbles_gpu_mpi(int *loc, double *vals, double *pebs, int pn, int n);
 void print_heatmap(const char *filename, double *u, int n, double h);
 
 int main(int argc, char *argv[]) {
@@ -103,6 +106,7 @@ int main(int argc, char *argv[]) {
         elapsed_cpu = ((cpu_end.tv_sec + cpu_end.tv_usec * 1e-6)-(
                     cpu_start.tv_sec + cpu_start.tv_usec * 1e-6));
         printf("CPU took %f seconds\n", elapsed_cpu);
+        print_heatmap("lake_f.dat", u_cpu, npoints, h);
     }
     // ALL processes should sync here.
     MPI_Barrier(MPI_COMM_WORLD);
@@ -236,4 +240,31 @@ void run_cpu(double *u, double *u0, double *u1, double *pebbles, int n, double h
     }
 
     memcpy(u, uc, sizeof(double) * n * n);
+}
+
+void evolve13pt(double *un, double *uc, double *uo, double *pebbles, int n, double h, double dt, double t)
+{
+    int i, j, idx;
+
+    for( i = 0; i < n; i++)
+    {
+        for( j = 0; j < n; j++)
+        {
+            idx = j + i * n;
+
+            if( i <= 1 || i >= n - 2 || j <= 1 || j >= n - 2 )
+            {
+                un[idx] = 0.;
+            }
+            else
+            {
+                un[idx] = 2*uc[idx] - uo[idx] + VSQR *(dt * dt) * (( WEST(idx) + 
+                            EAST(idx) + NORTH(idx,n) + SOUTH(idx,n) + 0.25*(NORTHWEST(idx,n) + 
+                                NORTHEAST(idx,n) + SOUTHWEST(idx,n) + SOUTHEAST(idx,n)) + 
+                            0.125*(WESTWEST(idx) + EASTEAST(idx) + NORTHNORTH(idx,n) +
+                                SOUTHSOUTH(idx,n)) - 6 * uc[idx])/(h * h) + f(pebbles[idx],t));
+
+            }
+        }
+    }
 }
