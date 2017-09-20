@@ -112,7 +112,7 @@ __global__ void evolve13_gpu_MPI(double *un, double *uc, double *uo, double *peb
     }
 }
 
-void run_gpu(double *u, double *u0, double *u1, double *pebbles, int npoints, double h, double end_time, int nthreads, int rank, int size) {
+void run_gpu_mpi (double *u, double *u0, double *u1, double *pebbles, int npoints, double h, double end_time, int nthreads, int rank, int size) {
 
     if ((npoints % GPU_COUNT != 0) || (npoints % nthreads != 0) || (nthreads * nthreads > MAX_THREADS)) {
         printf("Invalid arguments: Can't launch on GPU");
@@ -161,7 +161,7 @@ void run_gpu(double *u, double *u0, double *u1, double *pebbles, int npoints, do
     
 	/* Start GPU computation timer */
 	CUDA_CALL(cudaEventRecord(kstart, 0));
-
+    printf("rank %d, Memory Allocated. Entering While Loop\n",rank);
 	/* HW2: Add main lake simulation loop here */
 	while(1){
         // TODO: Evolve Kernel call here

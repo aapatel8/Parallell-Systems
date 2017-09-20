@@ -118,7 +118,7 @@ void run_cpu(double *u, double *u0, double *u1, double *pebbles, int n, double h
         if(!tpdt(&t,dt,end_time)) break;
     }
 
-    memcpy(u, un, sizeof(double) * n * n);
+    memcpy(u, uc, sizeof(double) * n * n);
 }
 
 void init_pebbles(double *p, int pn, int n)
@@ -188,32 +188,6 @@ void evolve13pt(double *un, double *uc, double *uo, double *pebbles, int n, doub
                             0.125*(WESTWEST(idx) + EASTEAST(idx) + NORTHNORTH(idx,n) +
                                 SOUTHSOUTH(idx,n)) - 6 * uc[idx])/(h * h) + f(pebbles[idx],t));
 
-            }
-        }
-    }
-}
-
-
-void evolve_old(double *un, double *uc, double *uo, double *pebbles, int n, double h, double dt, double t)
-{
-    int i, j, idx;
-
-    for( i = 0; i < n; i++)
-    {
-        for( j = 0; j < n; j++)
-        {
-            idx = j + i * n;
-            if( i == 0 || i == n - 1 || j == 0 || j == n - 1) {
-                un[idx] = 0.;
-            } else if( i == 1 || i == n - 2 || j == 1 || j == n - 2 ) {
-                un[idx] = 2*uc[idx] - uo[idx] + VSQR *(dt * dt) *(( WEST(idx) + EAST(idx) + NORTH(idx,n) + SOUTH(idx,n) - 
-                            4 * uc[idx])/(h * h) + f(pebbles[idx],t));
-            } else {
-                un[idx] = 2*uc[idx] - uo[idx] + VSQR *(dt * dt) * (( WEST(idx) + 
-                            EAST(idx) + NORTH(idx,n) + SOUTH(idx,n) + 0.25*(NORTHWEST(idx,n) + 
-                                NORTHEAST(idx,n) + SOUTHWEST(idx,n) + SOUTHEAST(idx,n)) + 
-                            0.125*(WESTWEST(idx) + EASTEAST(idx) + NORTHNORTH(idx,n) +
-                                SOUTHSOUTH(idx,n)) - 6 * uc[idx])/(h * h) + f(pebbles[idx],t));
             }
         }
     }
