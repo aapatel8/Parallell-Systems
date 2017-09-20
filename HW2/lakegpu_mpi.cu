@@ -76,7 +76,8 @@ inline void __cudaCheckError( const char *file, const int line ) {
   return;
 }
 
-void custom_memcpy_double(double *dest, double *source, int incr);
+void copy_from_buffer_to_lake(double *lake, double *buffer, int incr);
+void copy_from_lake_to_buffer(double *buffer, double *lake, int incr);
 
 int tpdt_2(double *t, double dt, double tf) {
     if((*t) + dt > tf) return 0;
@@ -162,9 +163,11 @@ void run_gpu_mpi (double *u, double *u0, double *u1, double *pebbles, int npoint
 	/* Start GPU computation timer */
 	CUDA_CALL(cudaEventRecord(kstart, 0));
     printf("rank %d, Memory Allocated. Entering While Loop\n",rank);
+
 	/* HW2: Add main lake simulation loop here */
 	while(1){
         // TODO: Evolve Kernel call here
+        printf(".");
         evolve13_gpu_MPI<<<dim3(nblocks, nblocks,1), dim3(nthreads, nthreads, 1)>>>(un_d, uc_d, uo_d, pebbles_d, npoints, h, dt, t, rank);
         cudaMemcpy(u, un_d, tot_area, cudaMemcpyDeviceToHost);
         if(!tpdt_2(&t, dt, end_time)) break;
@@ -174,36 +177,36 @@ void run_gpu_mpi (double *u, double *u0, double *u1, double *pebbles, int npoint
             MPI_Irecv(recv_b, npoints, MPI_DOUBLE, 1, TAG_1_TO_0, MPI_COMM_WORLD, &recv_reqs[1]);
             
             source = &u[npts-2];
-            custom_memcpy_double(send_d, source, npoints);
+            copy_from_lake_to_buffer(send_d, source, npoints);
             MPI_Isend(send_d, npoints, MPI_DOUBLE, 1, TAG_0_TO_1, MPI_COMM_WORLD, &send_reqs[0]);
             
             loc = &u[npoints * (npts-2)];
             memcpy(send_c, loc, sizeof(double) * npts);
             memcpy(&send_c[npts], &loc[npoints], sizeof(double) *npts);
-            MPI_Isend(send_c, npoints, MPI_DOUBLE, 1, TAG_0_TO_2, MPI_COMM_WORLD, &send_reqs[1]);
+            MPI_Isend(send_c, npoints, MPI_DOUBLE, 2, TAG_0_TO_2, MPI_COMM_WORLD, &send_reqs[1]);
             if(MPI_SUCCESS != MPI_Waitall(2, recv_reqs, recv_stats)) {
                 printf("STAGE 2, rank %d : Receive Waitall Failed \n", rank);
                 exit(-1) ;
             }
             
             dest = &u[npts];
-            custom_memcpy_double(dest, recv_b, npoints);
+            copy_from_buffer_to_lake(dest, recv_b, npoints);
             
             dest = &u[npoints*npts];
             memcpy(dest, recv_a, sizeof(double)*npts);
             dest += npoints;
             memcpy(dest, &recv_a[npts], sizeof(double)*npts);
-            if(MPI_SUCCESS != MPI_Waitall(2, send_reqs, send_stats)) {
+           /* if(MPI_SUCCESS != MPI_Waitall(2, send_reqs, send_stats)) {
                 printf("STAGE 2: Send Waitall Failed\n");
                 exit(-1);
             }
-
+            */
         } else if(1 == rank) {
             MPI_Irecv(recv_a, npoints, MPI_DOUBLE, 3, TAG_3_TO_1, MPI_COMM_WORLD, &recv_reqs[0]);
             MPI_Irecv(recv_b, npoints, MPI_DOUBLE, 0, TAG_0_TO_1, MPI_COMM_WORLD, &recv_reqs[1]);
             
             source = &u[npts];
-            custom_memcpy_double(send_d, source, npoints);
+            copy_from_lake_to_buffer(send_d, source, npoints);
             MPI_Isend(send_d, npoints, MPI_DOUBLE, 0, TAG_1_TO_0, MPI_COMM_WORLD, &send_reqs[0]);
             
             loc = &u[npoints*(npts-2) + npts];
@@ -215,7 +218,7 @@ void run_gpu_mpi (double *u, double *u0, double *u1, double *pebbles, int npoint
                 exit(-1) ;
             }
             dest = &u[npts-2];
-            custom_memcpy_double(dest, recv_b, npoints);
+            copy_from_buffer_to_lake(dest, recv_b, npoints);
             
             dest = &u[npoints*npts+npts];
             memcpy(dest, recv_a, sizeof(double)*npts);
@@ -226,7 +229,7 @@ void run_gpu_mpi (double *u, double *u0, double *u1, double *pebbles, int npoint
             MPI_Irecv(recv_b, npoints, MPI_DOUBLE, 3, TAG_3_TO_2, MPI_COMM_WORLD, &recv_reqs[1]);
             
             source = &u[npoints*npts + npts-2];
-            custom_memcpy_double(send_d, source, npoints);
+            copy_from_lake_to_buffer(send_d, source, npoints);
             MPI_Isend(send_d, npoints, MPI_DOUBLE, 3, TAG_2_TO_3, MPI_COMM_WORLD, &send_reqs[0]);
             
             loc = &u[npoints*npts];
@@ -239,7 +242,7 @@ void run_gpu_mpi (double *u, double *u0, double *u1, double *pebbles, int npoint
             }
             
             dest = &u[npoints*npts+npts];
-            custom_memcpy_double(dest, recv_b, npoints);
+            copy_from_buffer_to_lake(dest, recv_b, npoints);
             
             dest = &u[npoints*(npts-2)];
             memcpy(dest, recv_a, sizeof(double)*npts);
@@ -250,7 +253,7 @@ void run_gpu_mpi (double *u, double *u0, double *u1, double *pebbles, int npoint
             MPI_Irecv(recv_b, npoints, MPI_DOUBLE, 2, TAG_2_TO_3, MPI_COMM_WORLD, &recv_reqs[1]);
             
             source = &u[npoints*npts+npts];
-            custom_memcpy_double(send_d, source, npoints);
+            copy_from_lake_to_buffer(send_d, source, npoints);
             MPI_Isend(send_d, npoints, MPI_DOUBLE, 2, TAG_3_TO_2, MPI_COMM_WORLD, &send_reqs[0]);
             
             loc = &u[npoints*npts+npts];
@@ -263,7 +266,7 @@ void run_gpu_mpi (double *u, double *u0, double *u1, double *pebbles, int npoint
                 exit(-1) ;
             }
             dest = &u[npoints*npts+npts-2];
-            custom_memcpy_double(dest, recv_b, npoints);
+            copy_from_buffer_to_lake(dest, recv_b, npoints);
             
             dest = &u[npoints*(npts-2) + npts];
             memcpy(dest, recv_a, sizeof(double)*npts);
@@ -271,6 +274,7 @@ void run_gpu_mpi (double *u, double *u0, double *u1, double *pebbles, int npoint
             memcpy(dest, &recv_a[npts], sizeof(double)*npoints);            
         }
         MPI_Barrier(MPI_COMM_WORLD);
+        //printf("Rank %d Exited Barrier.\n", rank);
         cudaMemcpy(un_d, u, tot_area, cudaMemcpyHostToDevice);
         
         tmp = uo_d;
@@ -293,11 +297,22 @@ void run_gpu_mpi (double *u, double *u0, double *u1, double *pebbles, int npoint
 	CUDA_CALL(cudaEventDestroy(kstop));
 }
 
-void custom_memcpy_double(double *dest, double *source, int incr){
+void copy_from_lake_to_buffer(double *buffer, double *lake, int incr){
     int k =0;
+    double *ptr = lake;
     for(k=0; k<incr; k+=2) {
-        dest[k] = source[0];
-        dest[k+1] = source[1];
-        source += incr;
+        buffer[k] = ptr[0];
+        buffer[k+1] = ptr[1];
+        ptr += incr;
+    }
+}
+
+void copy_from_buffer_to_lake(double *lake, double *buffer, int incr){
+    int k =0;
+    double *ptr = lake;
+    for(k=0; k<incr; k+=2) {
+        ptr[0] = buffer[k];
+        ptr[1] = buffer[k+1];
+        ptr += incr;
     }
 }
