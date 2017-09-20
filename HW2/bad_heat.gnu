@@ -1,7 +1,7 @@
 # heatmap for lake.cu
 
 set terminal png
-
+set cbrange[-1:1]
 set xrange[0:1]
 set yrange[0:1]
 
