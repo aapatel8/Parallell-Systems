@@ -5,98 +5,88 @@ pranjan Pritesh Ranjan
 
 --V1--
 
-1. When comparing the plots of the 5-pt stencil vs the 13-pt stencil, we observe that the time for the 13-pt stencil
-increases slightly. This is more notable as the number of pixels is increased. This is to be expected since the algorithm 
-to calculate using the 13-pt stencil is more complicated, as the total number of neighbors' values checked increases. 
-Below are some observations (ignore the GPU values):
+1. When comparing the plots of the 5-pt stencil vs the 13-pt stencil, we 
+   observe that the CPU computation time for the 13-pt stencil increases slightly.
+   This is to be expected since the 13-pt stencil algorithm accesses more grid 
+   points and does more computation.
+    
+   However, the CPU computation time increases notably with increase with number 
+   of pixels. This is also expected because the number of computation has a  
+   complexity of O(n^2) where n is the number of pixels.
+   
+Below are some of the observation data (ignored the GPU values):
 
-5-pt -
+5-pt stencil calculation-
 
 128 pixels:
-
 [aapatel8@c57 hw2p3]$ ./lake 128 1 1.0 8
 Running ./lake with (128 x 128) grid, until 1.000000, with 8 threads
 CPU took 0.274744 seconds
-GPU computation: 0.003008 msec
-GPU took 0.309381 seconds
 
 256 pixels:
-
 [aapatel8@c57 hw2p3]$ ./lake 256 1 1.0 8
 Running ./lake with (256 x 256) grid, until 1.000000, with 8 threads
 CPU took 2.295911 seconds
-GPU computation: 0.003136 msec
-GPU took 0.408365 seconds
 
 512 pixels:
-
 [aapatel8@c57 hw2p3]$ ./lake 512 1 1.0 8
 Running ./lake with (512 x 512) grid, until 1.000000, with 8 threads
 CPU took 21.540359 seconds
-GPU computation: 0.003776 msec
-GPU took 0.087297 seconds
 
-13-pt -
+13-pt stencil calculations-
 
 128 pixels:
 
 [aapatel8@c57 pritesh]$ ./lake 128 1 1.0 8
 Running ./lake with (128 x 128) grid, until 1.000000, with 8 threads
 CPU took 0.279874 seconds
-GPU method called
-GPU computation: 3.818688 msec
-GPU method Exited
-GPU took 0.314139 seconds
 
 256 pixels:
-
 [aapatel8@c57 pritesh]$ ./lake 256 1 1.0 8
 Running ./lake with (256 x 256) grid, until 1.000000, with 8 threads
 CPU took 2.309055 seconds
-GPU method called
-GPU computation: 28.562689 msec
-GPU method Exited
-GPU took 0.412637 seconds
 
 512 pixels:
-
 [aapatel8@c57 pritesh]$ ./lake 512 1 1.0 8
 Running ./lake with (512 x 512) grid, until 1.000000, with 8 threads
 CPU took 25.905560 seconds
-GPU method called
-GPU computation: 208.642914 msec
-GPU method Exited
-GPU took 0.524099 seconds
 
-2. When increasing the number of pixels used, we observe that the time taken by the CPU increases nearly tenfold as 
-the number of pixels is doubled (i.e. area increased by a factor of four). This is to be expected since more pixels 
-go through the algorithm and there are greater number of neighbors to be considered. Below are a couple observations:
+2. When increasing the number of pixels used, we observe that the time taken 
+    by the CPU increases nearly tenfold as the number of pixels is doubled 
+    (i.e. area increased by a factor of four). This is to be expected 
+    since more pixels go through the algorithm and there are greater number
+    of neighbors to be considered. Below are a couple observations:
 
 [aapatel8@c39 pritesh]$ ./lake 256 5 1.0 8
 Running ./lake with (256 x 256) grid, until 1.000000, with 8 threads
 CPU took 2.311077 seconds
 
-GPU method called
-GPU computation: 24.840960 msec
-
-GPU method Exited
-GPU took 0.346952 seconds
 [aapatel8@c39 pritesh]$ ./lake 512 5 1.0 8
 Running ./lake with (512 x 512) grid, until 1.000000, with 8 threads
 CPU took 19.663561 seconds
 
+3. Another observation noted was that for the same time, the 13-pt plots 
+   propogated further than those of the 5-pt. This is to be expected 
+   since each pixel is communicating with more neighbors per each unit
+   of time, leading to faster times in getting the precise values. 
+   Attached are some plots showing the difference in the diameter for 
+   both 5-pt and 13-pt for the same initial values. 
+   
+----------------------------V2----------------------------------------
+
+Running ./lake with (16 x 16) grid, until 1.000000, with 8 threads
+CPU took 0.000404 seconds
 GPU method called
-GPU computation: 201.978119 msec
-
+GPU computation: 0.232256 msec
 GPU method Exited
-GPU took 0.517203 seconds
+GPU took 0.317917 seconds
 
-3. Another observation noted was that for the same time, the 13-pt plots propogated further than those of the 5-pt. This
-is to be expected since each pixel is communicating with more neighbors per each unit of time, leading to faster times in 
-getting the precise values. Attached are some plots showing the difference in the diameter for both 5-pt and 13-pt for the
-same initial values. 
-
---V2--
+Running ./lake with (32 x 32) grid, until 1.000000, with 8 threads
+CPU took 0.003856 seconds
+GPU method called
+GPU computation: 0.393376 msec
+GPU method Exited
+GPU took 0.306330 seconds
 
 Running ./lake with (64 x 64) grid, until 1.000000, with 8 threads
 CPU took 0.034076 seconds
@@ -141,13 +131,16 @@ Also, CPU rate of growth of computation time is faster than GPU. It
 consistently increases by a factor of 9(+/- 1), while total time taken by GPU 
 grows by a factor of 3(+/- 1).
 
---V3--
+When comparing the run times of CPU vs. GPU, one observation was
+   that initially, using low values of pixel size (i.e. 128) actually 
+   results in faster CPU times. Since the actual calculations take 
+   minimal times for this, the overhead for using GPU (transferring 
+   memory back and forth from the device) is more expensive. This 
+   means it is actualy better to use the serial code for lower 
+   values of time or pixel size. This can be seen by the observations 
+   below where the pixel size is changed while keeping other values constant.
 
-1. When comparing the run times of CPU vs. GPU, one observation was that initially, using low values of 
-pixel size (i.e. 128) actually results in faster CPU times. Since the actual calculations take minimal times
-for this, the overhead for using GPU (transferring memory back and forth from the device) is more expensive.
-This means it is actualy better to use the serial code for lower values of time or pixel size. This can be 
-seen by the observations below where the pixel size is changed while keeping other values constant.
+----------------------------V3----------------------------------------
 
 Pixel size - 64:
 
@@ -181,9 +174,10 @@ GPU on rank 2, took 0.334976 seconds
 GPU computation on rank 1: 51.400032 msec
 GPU on rank 1, took 0.335271 seconds
 
-2. Comparing the run times of CPU vs. GPU, another observation was that they both seem to scale consistently
-when changing the pixel size while keeping the other values constant. The CPU time increases at an average rate
-of 8 and the GPU time increases at an average rate of 7.
+2. Comparing the run times of CPU vs. GPU, another observation was that 
+   they both seem to scale consistently when changing the pixel size while
+   keeping the other values constant. The CPU time increases at an average 
+   rate of 8 and the GPU time increases at an average rate of 7.
 
 Pixel size - 128:
 
@@ -298,12 +292,13 @@ GPU on rank 2, took 5.017112 seconds
 GPU computation on rank 1: 4725.493652 msec
 GPU on rank 1, took 5.018248 seconds
 
-4. When increasing the number of threads inputted, the time seems to decrease slightly. While 
-the total number of threads that are run is still the same (i.e. the grid size), this is to be 
-expected since there are more threads per block. This results in more efficient use of the blocks. 
-This can be seen based on the observations below.
+4. When increasing the number of threads, the time seems to decrease slightly.
+   While the total number of threads that are run is still the same 
+   (i.e. the grid size), this is to be expected since there are more threads 
+   per block. This results in more efficient use of the blocks. 
+   This can be seen based on the observations below.
 
-Thread size - 2
+Number of thread per block - (2 * 2)
 
 [aapatel8@c57 pritesh]$ prun ./lake 512 1 1.0 2
 [prun] Master compute host = c57
@@ -319,7 +314,7 @@ GPU computation on rank 1: 2283.177734 msec
 GPU on rank 1, took 2.581224 seconds
 GPU on rank 0, took 2.580366 seconds
 
-Thread size - 16
+Number of thread per block - (16 * 16)
 
 [aapatel8@c57 pritesh]$ prun ./lake 512 1 1.0 16
 [prun] Master compute host = c57
@@ -338,8 +333,9 @@ GPU on rank 1, took 2.259375 seconds
 --Additional--
 
 Based on the observations above, where different input values (thread size, grid size, time) were
-changed, it seems that the GPU scales properly. It was also noted above that for low values of these
-variables, the speeds may actually be higher for the CPU than the GPU due to the overhead.
+changed, it seems that the GPU scales better than the CPU. It was also noted above that for 
+low values of these variables, the speeds may actually be higher for the GPU than the CPU due 
+to the overhead.
 
 --Challenges--
 
