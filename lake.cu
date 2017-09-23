@@ -58,7 +58,7 @@ int main(int argc, char *argv[])
   int 	  narea	    = npoints * npoints;
 
   double *u_i0, *u_i1;
-  double *u_cpu, *u_gpu, *pebs;
+  double *u_cpu, *u_cpu2, *u_gpu, *pebs;
   double h;
 
   double elapsed_cpu, elapsed_gpu;
@@ -100,8 +100,9 @@ int main(int argc, char *argv[])
 
   print_heatmap("lake_f.dat", u_cpu, npoints, h);
 
-  run_cpu2(u_cpu, u_i0, u_i1, pebs, npoints, h, end_time);
-  print_heatmap("lake_f2.dat", u_cpu, npoints, h);
+  u_cpu2 = (double*)malloc(sizeof(double) * narea);
+  run_cpu2(u_cpu2, u_i0, u_i1, pebs, npoints, h, end_time);
+  print_heatmap("lake_f2.dat", u_cpu2, npoints, h);
   free(u_i0);
   free(u_i1);
   free(pebs);
@@ -119,7 +120,7 @@ void run_cpu2(double *u, double *u0, double *u1, double *pebbles, int n, double 
   un = (double*)malloc(sizeof(double) * n * n);
   uc = (double*)malloc(sizeof(double) * n * n);
   uo = (double*)malloc(sizeof(double) * n * n);
-
+  end_time = end_time / 2;
   memcpy(uo, u0, sizeof(double) * n * n);
   memcpy(uc, u1, sizeof(double) * n * n);
 
