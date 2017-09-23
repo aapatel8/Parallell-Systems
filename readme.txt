@@ -1,0 +1,347 @@
+Group Author info:
+aapatel8 Akshit A Patel
+kmishra Kushagra Mishra
+pranjan Pritesh Ranjan
+
+--V1--
+
+1. When comparing the plots of the 5-pt stencil vs the 13-pt stencil, we observe that the time for the 13-pt stencil
+increases slightly. This is more notable as the number of pixels is increased. This is to be expected since the algorithm 
+to calculate using the 13-pt stencil is more complicated, as the total number of neighbors' values checked increases. 
+Below are some observations (ignore the GPU values):
+
+5-pt -
+
+128 pixels:
+
+[aapatel8@c57 hw2p3]$ ./lake 128 1 1.0 8
+Running ./lake with (128 x 128) grid, until 1.000000, with 8 threads
+CPU took 0.274744 seconds
+GPU computation: 0.003008 msec
+GPU took 0.309381 seconds
+
+256 pixels:
+
+[aapatel8@c57 hw2p3]$ ./lake 256 1 1.0 8
+Running ./lake with (256 x 256) grid, until 1.000000, with 8 threads
+CPU took 2.295911 seconds
+GPU computation: 0.003136 msec
+GPU took 0.408365 seconds
+
+512 pixels:
+
+[aapatel8@c57 hw2p3]$ ./lake 512 1 1.0 8
+Running ./lake with (512 x 512) grid, until 1.000000, with 8 threads
+CPU took 21.540359 seconds
+GPU computation: 0.003776 msec
+GPU took 0.087297 seconds
+
+13-pt -
+
+128 pixels:
+
+[aapatel8@c57 pritesh]$ ./lake 128 1 1.0 8
+Running ./lake with (128 x 128) grid, until 1.000000, with 8 threads
+CPU took 0.279874 seconds
+GPU method called
+GPU computation: 3.818688 msec
+GPU method Exited
+GPU took 0.314139 seconds
+
+256 pixels:
+
+[aapatel8@c57 pritesh]$ ./lake 256 1 1.0 8
+Running ./lake with (256 x 256) grid, until 1.000000, with 8 threads
+CPU took 2.309055 seconds
+GPU method called
+GPU computation: 28.562689 msec
+GPU method Exited
+GPU took 0.412637 seconds
+
+512 pixels:
+
+[aapatel8@c57 pritesh]$ ./lake 512 1 1.0 8
+Running ./lake with (512 x 512) grid, until 1.000000, with 8 threads
+CPU took 25.905560 seconds
+GPU method called
+GPU computation: 208.642914 msec
+GPU method Exited
+GPU took 0.524099 seconds
+
+2. When increasing the number of pixels used, we observe that the time taken by the CPU increases nearly tenfold as 
+the number of pixels is doubled (i.e. area increased by a factor of four). This is to be expected since more pixels 
+go through the algorithm and there are greater number of neighbors to be considered. Below are a couple observations:
+
+[aapatel8@c39 pritesh]$ ./lake 256 5 1.0 8
+Running ./lake with (256 x 256) grid, until 1.000000, with 8 threads
+CPU took 2.311077 seconds
+
+GPU method called
+GPU computation: 24.840960 msec
+
+GPU method Exited
+GPU took 0.346952 seconds
+[aapatel8@c39 pritesh]$ ./lake 512 5 1.0 8
+Running ./lake with (512 x 512) grid, until 1.000000, with 8 threads
+CPU took 19.663561 seconds
+
+GPU method called
+GPU computation: 201.978119 msec
+
+GPU method Exited
+GPU took 0.517203 seconds
+
+3. Another observation noted was that for the same time, the 13-pt plots propogated further than those of the 5-pt. This
+is to be expected since each pixel is communicating with more neighbors per each unit of time, leading to faster times in 
+getting the precise values. Attached are some plots showing the difference in the diameter for both 5-pt and 13-pt for the
+same initial values. 
+
+--V2--
+
+Running ./lake with (64 x 64) grid, until 1.000000, with 8 threads
+CPU took 0.034076 seconds
+GPU method called
+GPU computation: 0.746560 msec
+GPU method Exited
+GPU took 0.304611 seconds
+
+Running ./lake with (128 x 128) grid, until 1.000000, with 8 threads
+CPU took 0.290427 seconds
+GPU method called
+GPU computation: 3.615008 msec
+GPU method Exited
+GPU took 0.373303 seconds
+
+Running ./lake with (256 x 256) grid, until 1.000000, with 8 threads
+CPU took 2.310708 seconds
+GPU method called
+GPU computation: 24.783775 msec
+GPU method Exited
+GPU took 0.442584 seconds
+
+Running ./lake with (512 x 512) grid, until 1.000000, with 8 threads
+CPU took 19.929086 seconds
+GPU method called
+GPU computation: 202.622116 msec
+GPU method Exited
+GPU took 0.620971 seconds
+
+Running ./lake with (1024 x 1024) grid, until 1.000000, with 8 threads
+CPU took 171.375355 seconds
+GPU method called
+GPU computation: 1418.950439 msec
+GPU method Exited
+GPU took 1.851338 seconds
+
+Increasing the grid size, increases the CPU and GPU running time. 
+For smaller grid sizes of 64, 128 the GPU running time increases by a factor 
+of less than 1/10th while CPU running time increases by a factor of 10.
+
+Also, CPU rate of growth of computation time is faster than GPU. It 
+consistently increases by a factor of 9(+/- 1), while total time taken by GPU 
+grows by a factor of 3(+/- 1).
+
+--V3--
+
+1. When comparing the run times of CPU vs. GPU, one observation was that initially, using low values of 
+pixel size (i.e. 128) actually results in faster CPU times. Since the actual calculations take minimal times
+for this, the overhead for using GPU (transferring memory back and forth from the device) is more expensive.
+This means it is actualy better to use the serial code for lower values of time or pixel size. This can be 
+seen by the observations below where the pixel size is changed while keeping other values constant.
+
+Pixel size - 64:
+
+[aapatel8@c57 pritesh]$ prun ./lake 64 5 1.0 8
+[prun] Master compute host = c57
+[prun] Resource manager = slurm
+[prun] Launch cmd = mpiexec.hydra -bootstrap slurm ./lake 64 5 1.0 8
+CPU took 0.034438 seconds
+GPU computation on rank 2: 13.052224 msec
+GPU on rank 2, took 0.303313 seconds
+GPU computation on rank 1: 10.534880 msec
+GPU on rank 1, took 0.304053 seconds
+GPU computation on rank 0: 13.920864 msec
+GPU on rank 0, took 0.302969 seconds
+GPU computation on rank 3: 15.002304 msec
+GPU on rank 3, took 0.304049 seconds
+
+Pixel size - 128:
+
+[aapatel8@c57 pritesh]$ prun ./lake 128 5 1.0 8
+[prun] Master compute host = c57
+[prun] Resource manager = slurm
+[prun] Launch cmd = mpiexec.hydra -bootstrap slurm ./lake 128 5 1.0 8
+CPU took 0.288322 seconds
+GPU computation on rank 2: 49.906399 msec
+GPU computation on rank 0: 48.352161 msec
+GPU on rank 0, took 0.334306 seconds
+GPU computation on rank 3: 51.811584 msec
+GPU on rank 3, took 0.335267 seconds
+GPU on rank 2, took 0.334976 seconds
+GPU computation on rank 1: 51.400032 msec
+GPU on rank 1, took 0.335271 seconds
+
+2. Comparing the run times of CPU vs. GPU, another observation was that they both seem to scale consistently
+when changing the pixel size while keeping the other values constant. The CPU time increases at an average rate
+of 8 and the GPU time increases at an average rate of 7.
+
+Pixel size - 128:
+
+[aapatel8@c57 pritesh]$ prun ./lake 128 5 1.0 8
+[prun] Master compute host = c57
+[prun] Resource manager = slurm
+[prun] Launch cmd = mpiexec.hydra -bootstrap slurm ./lake 128 5 1.0 8
+CPU took 0.288582 seconds
+GPU computation on rank 0: 53.688866 msec
+GPU computation on rank 3: 54.233215 msec
+GPU on rank 3, took 0.343727 seconds
+GPU computation on rank 1: 52.396606 msec
+GPU on rank 1, took 0.343731 seconds
+GPU computation on rank 2: 48.694527 msec
+GPU on rank 2, took 0.342861 seconds
+GPU on rank 0, took 0.343119 seconds
+
+Pixel size - 256:
+
+[aapatel8@c57 pritesh]$ prun ./lake 256 5 1.0 8
+[prun] Master compute host = c57
+[prun] Resource manager = slurm
+[prun] Launch cmd = mpiexec.hydra -bootstrap slurm ./lake 256 5 1.0 8
+CPU took 2.371322 seconds
+GPU computation on rank 0: 290.261902 msec
+GPU on rank 0, took 0.583117 seconds
+GPU computation on rank 1: 291.931915 msec
+GPU on rank 1, took 0.584238 seconds
+GPU computation on rank 2: 297.299225 msec
+GPU on rank 2, took 0.583694 seconds
+GPU computation on rank 3: 298.513245 msec
+GPU on rank 3, took 0.584163 seconds
+
+Pixel size - 512:
+
+[aapatel8@c57 pritesh]$ prun ./lake 512 5 1.0 8
+[prun] Master compute host = c57
+[prun] Resource manager = slurm
+[prun] Launch cmd = mpiexec.hydra -bootstrap slurm ./lake 512 5 1.0 8
+CPU took 19.461185 seconds
+GPU computation on rank 0: 1988.556152 msec
+GPU on rank 0, took 2.280674 seconds
+GPU computation on rank 3: 1990.090576 msec
+GPU on rank 3, took 2.281911 seconds
+GPU computation on rank 2: 1985.217407 msec
+GPU on rank 2, took 2.280397 seconds
+GPU computation on rank 1: 1985.242065 msec
+GPU on rank 1, took 2.281940 seconds
+
+Pixel size - 1024
+
+[prun] Launch cmd = mpiexec.hydra -bootstrap slurm ./lake 1024 5 1.0 8
+CPU took 168.797486 seconds
+GPU computation on rank 0: 13953.318359 msec
+GPU on rank 0, took 14.254194 seconds
+GPU computation on rank 2: 13951.677734 msec
+GPU on rank 2, took 14.253877 seconds
+GPU computation on rank 3: 13954.031250 msec
+GPU on rank 3, took 14.255559 seconds
+GPU computation on rank 1: 13956.873047 msec
+GPU on rank 1, took 14.255486 seconds
+
+3. When changing the time value, both CPU and GPU seem to scale similarly. Based on the observations
+below, we note that both CPU and GPU run times increase tenfold when increasing time by a factor 
+of 10. All other values were kept constant.
+
+Time - 1.0
+
+[aapatel8@c57 pritesh]$ prun ./lake 128 5 1.0 8
+[prun] Master compute host = c57
+[prun] Resource manager = slurm
+[prun] Launch cmd = mpiexec.hydra -bootstrap slurm ./lake 128 5 1.0 8
+CPU took 0.288541 seconds
+GPU computation on rank 0: 51.181377 msec
+GPU on rank 0, took 0.341768 seconds
+GPU computation on rank 2: 48.830017 msec
+GPU on rank 2, took 0.342069 seconds
+GPU computation on rank 3: 48.911362 msec
+GPU on rank 3, took 0.342679 seconds
+GPU computation on rank 1: 51.317375 msec
+GPU on rank 1, took 0.342687 seconds
+
+Time - 10.0
+
+[aapatel8@c57 pritesh]$ prun ./lake 128 5 10.0 8
+[prun] Master compute host = c57
+[prun] Resource manager = slurm
+[prun] Launch cmd = mpiexec.hydra -bootstrap slurm ./lake 128 5 10.0 8
+CPU took 2.891010 seconds
+GPU computation on rank 0: 472.219727 msec
+GPU computation on rank 3: 477.672974 msec
+GPU computation on rank 1: 476.150543 msec
+GPU on rank 0, took 0.761196 seconds
+GPU on rank 3, took 0.762229 seconds
+GPU computation on rank 2: 475.642242 msec
+GPU on rank 2, took 0.761374 seconds
+GPU on rank 1, took 0.762300 seconds
+
+Time - 100.0
+
+[aapatel8@c57 pritesh]$ prun ./lake 128 5 100.0 8
+[prun] Master compute host = c57
+[prun] Resource manager = slurm
+[prun] Launch cmd = mpiexec.hydra -bootstrap slurm ./lake 128 5 100.0 8
+CPU took 32.233854 seconds
+GPU computation on rank 3: 4725.015625 msec
+GPU computation on rank 0: 4725.421875 msec
+GPU on rank 0, took 5.017157 seconds
+GPU on rank 3, took 5.018275 seconds
+GPU computation on rank 2: 4725.134766 msec
+GPU on rank 2, took 5.017112 seconds
+GPU computation on rank 1: 4725.493652 msec
+GPU on rank 1, took 5.018248 seconds
+
+4. When increasing the number of threads inputted, the time seems to decrease slightly. While 
+the total number of threads that are run is still the same (i.e. the grid size), this is to be 
+expected since there are more threads per block. This results in more efficient use of the blocks. 
+This can be seen based on the observations below.
+
+Thread size - 2
+
+[aapatel8@c57 pritesh]$ prun ./lake 512 1 1.0 2
+[prun] Master compute host = c57
+[prun] Resource manager = slurm
+[prun] Launch cmd = mpiexec.hydra -bootstrap slurm ./lake 512 1 1.0 2
+CPU took 19.043737 seconds
+GPU computation on rank 0: 2288.151123 msec
+GPU computation on rank 2: 2281.671631 msec
+GPU on rank 2, took 2.579792 seconds
+GPU computation on rank 3: 2287.948730 msec
+GPU on rank 3, took 2.581149 seconds
+GPU computation on rank 1: 2283.177734 msec
+GPU on rank 1, took 2.581224 seconds
+GPU on rank 0, took 2.580366 seconds
+
+Thread size - 16
+
+[aapatel8@c57 pritesh]$ prun ./lake 512 1 1.0 16
+[prun] Master compute host = c57
+[prun] Resource manager = slurm
+[prun] Launch cmd = mpiexec.hydra -bootstrap slurm ./lake 512 1 1.0 16
+CPU took 23.477141 seconds
+GPU computation on rank 2: 1961.532593 msec
+GPU computation on rank 0: 1966.947754 msec
+GPU on rank 0, took 2.258264 seconds
+GPU on rank 2, took 2.258087 seconds
+GPU computation on rank 3: 1963.283447 msec
+GPU on rank 3, took 2.259309 seconds
+GPU computation on rank 1: 1961.849609 msec
+GPU on rank 1, took 2.259375 seconds
+
+--Additional--
+
+Based on the observations above, where different input values (thread size, grid size, time) were
+changed, it seems that the GPU scales properly. It was also noted above that for low values of these
+variables, the speeds may actually be higher for the CPU than the GPU due to the overhead.
+
+--Challenges--
+
+One challange faced was in V3 where we had to take the 1D array of the lake and map it to individual
+quadrants, where within each, we had to consider the block and the grid id as well. 
