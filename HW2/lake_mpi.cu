@@ -27,8 +27,10 @@
 
 #define MAX_PSZ 10
 
+/* 13 point stencil evolve function */
 void evolve13pt (double *un, double *uc, double *uo, double *pebbles, int n, double h, double dt, double t);
 int tpdt(double *t, double dt, double end_time);
+
 void init_pebbles(double *p, int pn, int n);
 
 void pick_pebble_locations(int *loc, double *p, int pn, int n);
@@ -82,21 +84,25 @@ int main(int argc, char *argv[]) {
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     
     if ( ROOT == rank) {
+        // Root picks the pebble locations and the value at those locations.
         pick_pebble_locations(loc, peb_vals, npebs, npoints);
-        //this loc and peb_vals have to be send by root.
+        //Root sends array loc and peb_vals to every other process.
         for(i=1; i< size; i++){
             MPI_Send(loc, npebs, MPI_INT, i, TAG_PEB_LOCS, MPI_COMM_WORLD);
             MPI_Send(peb_vals, npebs, MPI_DOUBLE, i, TAG_PEB_VALS, MPI_COMM_WORLD);
         }
     } else {
-        // Receive the pebbles location and value from ROOT.
+        // Every non ROOT process receives the pebbles location and value from ROOT.
         MPI_Recv(loc, npebs, MPI_INT, ROOT, TAG_PEB_LOCS, MPI_COMM_WORLD, &status);
         MPI_Recv(peb_vals, npebs, MPI_DOUBLE, ROOT, TAG_PEB_VALS, MPI_COMM_WORLD, &status);  
     }
+    // Every processes initializes the pebbles with the 'loc' and 'peb_vals' array.
     init_pebbles_gpu_mpi(loc, peb_vals, pebs, npebs, npoints);
+    // Initialize initial verisons of the pond.
     init(u_i0, pebs, npoints);
     init(u_i1, pebs, npoints);
     if(ROOT == rank ){
+        // The CPU serial version is run at the ROOT.
         print_heatmap("lake_i.dat", u_i0, npoints, h);
     
         gettimeofday(&cpu_start, NULL);
@@ -111,6 +117,7 @@ int main(int argc, char *argv[]) {
     // ALL processes should sync here.
     MPI_Barrier(MPI_COMM_WORLD);
     gettimeofday(&gpu_start, NULL);
+    // Every process executes on one quadrant of GPU.
     run_gpu_mpi(u_gpu, u_i0, u_i1, pebs, npoints, h, end_time, nthreads, rank, size); 
     gettimeofday(&gpu_end, NULL);
     elapsed_gpu = ((gpu_end.tv_sec + gpu_end.tv_usec * 1e-6)-(
@@ -148,6 +155,7 @@ void init_pebbles(double *p, int pn, int n)
 }
 
 void init_pebbles_gpu_mpi(int *loc, double *vals, double *pebs, int pn, int n) {
+    // Initialize the pebbles array with pebble locations and values.
     memset(pebs, 0, sizeof(double) *n *n);
     int k=0;
     for(k=0; k<pn; k++) {
@@ -159,7 +167,7 @@ void pick_pebble_locations(int *loc, double *p, int pn, int n) {
     /* Picks pn points out of n points at random and initializes them with 
     random values between 0 - MAX_PSZ 
     loc and p arrays should have capacity of pn elements.
-    loc and p arrays shall be sent by ROOT process to each other process.
+    loc and p arrays shall be sent by ROOT process to every other process.
     */
     int i, j, k, idx;
     int sz;
@@ -214,8 +222,8 @@ void print_heatmap(const char *filename, double *u, int n, double h) {
     fclose(fp);
 } 
 
-void run_cpu(double *u, double *u0, double *u1, double *pebbles, int n, double h, double end_time)
-{
+void run_cpu(double *u, double *u0, double *u1, double *pebbles, int n, double h, double end_time) {
+    /* The CPU version */
     double *un, *uc, *uo, *tmp;
     double t, dt;
 
