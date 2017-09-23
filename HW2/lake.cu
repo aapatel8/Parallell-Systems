@@ -1,3 +1,15 @@
+/******************************************************************************
+* FILE: 
+* DESCRIPTION:
+*
+* GROUP INFO:
+ pranjan            Pritesh Ranjan
+ kmishra            Kushagra Mishra
+ aapatel8           Akshit Patel
+* 
+* 
+******************************************************************************/
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>

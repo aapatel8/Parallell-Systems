@@ -1,3 +1,15 @@
+/******************************************************************************
+* FILE: 
+* DESCRIPTION:
+*
+* GROUP INFO:
+ pranjan            Pritesh Ranjan
+ kmishra            Kushagra Mishra
+ aapatel8           Akshit Patel
+* 
+* 
+******************************************************************************/
+
 /* Contains declarations used by both lake.cu and lakegpu.cu
 */
 
