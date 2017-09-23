@@ -76,6 +76,8 @@ inline void __cudaCheckError( const char *file, const int line ) {
   return;
 }
 
+// Buffer refers the array which is sent and received through MPI calls.
+// Lake refers the complete array which represents the lake.
 void copy_from_buffer_to_lake(double *lake, double *buffer, int incr);
 void copy_from_lake_to_buffer(double *buffer, double *lake, int incr);
 
@@ -94,14 +96,23 @@ __global__ void evolve13_gpu_MPI(double *un, double *uc, double *uo, double *peb
     int block_idx_y = gridDim.y*(rank/2) + blockIdx.y;
     
     int griddim_x = 2 * gridDim.x;
-    
+    // idx represents the location in the whole lake where the current 
+    // thread shall execute.
+    // This formulae calculates idx such that it maps the 1D lake array to 
+    // 2D thread and block identities.
     int idx = (griddim_x * blockDim.x * blockDim.y * block_idx_y) + 
               (threadIdx.y * blockDim.x * griddim_x) +
               (block_idx_x * blockDim.x) + threadIdx.x;
-              
+    
+    // i represents the y axis value if we visualize the lake as 
+    // as a 2D array.
     int i = idx / n;
+    
+    // j represents the x axis value if we visualize the lake as 
+    // a 2D array.
     int j = idx % n;
     
+    // The regular 13point evolve function.
     if (i <= 1 || i >= n - 2 || j <= 1 || j >= n - 2) {
         un[idx] = 0.;
     } else {
@@ -112,6 +123,27 @@ __global__ void evolve13_gpu_MPI(double *un, double *uc, double *uo, double *peb
                 SOUTHSOUTH(idx,n)) - 6 * uc[idx])/(h * h) + f_2(pebbles[idx],t));
     }
 }
+
+/* 
+ GPU 0          GPU 1
+***********^^|^^***********
+***********^^|^^***********
+***********^^|^^***********
+***********^^|^^***********
+^^^^^^^^^^^^^|^^^^^^^^^^^^^
+^^^^^^^^^^^^^|^^^^^^^^^^^^^
+---------------------------
+^^^^^^^^^^^^^|^^^^^^^^^^^^^
+^^^^^^^^^^^^^|^^^^^^^^^^^^^
+***********^^|^^***********
+***********^^|^^***********
+***********^^|^^***********
+***********^^|^^***********
+    GPU 2       GPU 3
+
+^^ represents the grid locations that are to exchanged with neighboring processes.    
+  
+*/
 
 void run_gpu_mpi (double *u, double *u0, double *u1, double *pebbles, int npoints, double h, double end_time, int nthreads, int rank, int size) {
 
@@ -173,14 +205,15 @@ void run_gpu_mpi (double *u, double *u0, double *u1, double *pebbles, int npoint
         if(!tpdt_2(&t, dt, end_time)) break;
         
         if (ROOT == rank) {
+            // Receive bouondary values from process 2 and 1
             MPI_Irecv(recv_a, npoints, MPI_DOUBLE, 2, TAG_2_TO_0, MPI_COMM_WORLD, &recv_reqs[0]);
             MPI_Irecv(recv_b, npoints, MPI_DOUBLE, 1, TAG_1_TO_0, MPI_COMM_WORLD, &recv_reqs[1]);
             
-            source = &u[npts-2];
-            copy_from_lake_to_buffer(send_d, source, npoints);
+            source = &u[npts-2];    // Send boundary values to process 1.
+            copy_from_lake_to_buffer(send_d, source, npoints);  // Copy in the send buffer.
             MPI_Isend(send_d, npoints, MPI_DOUBLE, 1, TAG_0_TO_1, MPI_COMM_WORLD, &send_reqs[0]);
             
-            loc = &u[npoints * (npts-2)];
+            loc = &u[npoints * (npts-2)];  // Send boundary values to process 2 
             memcpy(send_c, loc, sizeof(double) * npts);
             memcpy(&send_c[npts], &loc[npoints], sizeof(double) *npts);
             MPI_Isend(send_c, npoints, MPI_DOUBLE, 2, TAG_0_TO_2, MPI_COMM_WORLD, &send_reqs[1]);
@@ -189,9 +222,10 @@ void run_gpu_mpi (double *u, double *u0, double *u1, double *pebbles, int npoint
                 exit(-1) ;
             }
             
-            dest = &u[npts];
+            dest = &u[npts];  // Copy the received buffer back into lake one by one.
             copy_from_buffer_to_lake(dest, recv_b, npoints);
             
+            // 2 calls to memcpy shall suffice.
             dest = &u[npoints*npts];
             memcpy(dest, recv_a, sizeof(double)*npts);
             dest += npoints;
@@ -202,14 +236,15 @@ void run_gpu_mpi (double *u, double *u0, double *u1, double *pebbles, int npoint
             }
             */
         } else if(1 == rank) {
+            // Receive bouondary values from process 3 and 0
             MPI_Irecv(recv_a, npoints, MPI_DOUBLE, 3, TAG_3_TO_1, MPI_COMM_WORLD, &recv_reqs[0]);
             MPI_Irecv(recv_b, npoints, MPI_DOUBLE, 0, TAG_0_TO_1, MPI_COMM_WORLD, &recv_reqs[1]);
             
-            source = &u[npts];
+            source = &u[npts];  // Send boundary values to process 0
             copy_from_lake_to_buffer(send_d, source, npoints);
             MPI_Isend(send_d, npoints, MPI_DOUBLE, 0, TAG_1_TO_0, MPI_COMM_WORLD, &send_reqs[0]);
             
-            loc = &u[npoints*(npts-2) + npts];
+            loc = &u[npoints*(npts-2) + npts];  // Send boundary values to process 3
             memcpy(send_c, loc, sizeof(double)*npts);
             memcpy(&send_c[npts], &loc[npoints], sizeof(double)*npts);
             MPI_Isend(send_c, npoints, MPI_DOUBLE, 3, TAG_1_TO_3, MPI_COMM_WORLD, &send_reqs[1]);
@@ -225,14 +260,15 @@ void run_gpu_mpi (double *u, double *u0, double *u1, double *pebbles, int npoint
             dest+= npoints;
             memcpy(dest, &recv_a[npts], sizeof(double)*npts);
         } else if(2 == rank) {
+            // Receive bouondary values from process 0 and 3
             MPI_Irecv(recv_a, npoints, MPI_DOUBLE, 0, TAG_0_TO_2, MPI_COMM_WORLD, &recv_reqs[0]);
             MPI_Irecv(recv_b, npoints, MPI_DOUBLE, 3, TAG_3_TO_2, MPI_COMM_WORLD, &recv_reqs[1]);
             
-            source = &u[npoints*npts + npts-2];
+            source = &u[npoints*npts + npts-2]; // Send boundary values to process 3
             copy_from_lake_to_buffer(send_d, source, npoints);
             MPI_Isend(send_d, npoints, MPI_DOUBLE, 3, TAG_2_TO_3, MPI_COMM_WORLD, &send_reqs[0]);
             
-            loc = &u[npoints*npts];
+            loc = &u[npoints*npts];     // Send boundary values to process 0
             memcpy(send_c, loc, sizeof(double)*npts);
             memcpy(&send_c[npts], &loc[npoints], sizeof(double)*npts);
             MPI_Isend(send_c, npoints, MPI_DOUBLE, 0, TAG_2_TO_0, MPI_COMM_WORLD, &send_reqs[1]);
@@ -249,14 +285,15 @@ void run_gpu_mpi (double *u, double *u0, double *u1, double *pebbles, int npoint
             dest+= npoints;
             memcpy(dest, &recv_a[npts], sizeof(double)*npts);   
         } else if(3 == rank) {
+            // Receive bouondary values from process 1 and 2
             MPI_Irecv(recv_a, npoints, MPI_DOUBLE, 1, TAG_1_TO_3, MPI_COMM_WORLD, &recv_reqs[0]);
             MPI_Irecv(recv_b, npoints, MPI_DOUBLE, 2, TAG_2_TO_3, MPI_COMM_WORLD, &recv_reqs[1]);
             
-            source = &u[npoints*npts+npts];
+            source = &u[npoints*npts+npts]; // Send boundary values to process 2
             copy_from_lake_to_buffer(send_d, source, npoints);
             MPI_Isend(send_d, npoints, MPI_DOUBLE, 2, TAG_3_TO_2, MPI_COMM_WORLD, &send_reqs[0]);
             
-            loc = &u[npoints*npts+npts];
+            loc = &u[npoints*npts+npts];    // Send boundary values to process 1
             memcpy(send_c, loc, sizeof(double)*npts);
             memcpy(&send_c[npts], &loc[npoints], sizeof(double)*npts);
             MPI_Isend(send_c, npoints, MPI_DOUBLE, 1, TAG_3_TO_1, MPI_COMM_WORLD, &send_reqs[1]);
@@ -276,7 +313,7 @@ void run_gpu_mpi (double *u, double *u0, double *u1, double *pebbles, int npoint
         MPI_Barrier(MPI_COMM_WORLD);
         //printf("Rank %d Exited Barrier.\n", rank);
         cudaMemcpy(un_d, u, tot_area, cudaMemcpyHostToDevice);
-        
+        // We don't really need to memcpy the whole arrays. Simple pointer shuffle shall work.
         tmp = uo_d;
         uo_d = uc_d;
         uc_d = un_d;
@@ -298,6 +335,14 @@ void run_gpu_mpi (double *u, double *u0, double *u1, double *pebbles, int npoint
 }
 
 void copy_from_lake_to_buffer(double *buffer, double *lake, int incr){
+    /* This function copies the grid values from lake into buffer (This buffer shall be sent by MPI_Isend).
+    ^^
+    ^^
+    ^^      in lake converted to a buffer like this ^^^^^^^^^^^^^^^^^^^^^^
+    ^^
+    ^^
+    ^^    
+    */
     int k =0;
     double *ptr = lake;
     for(k=0; k<incr; k+=2) {
@@ -308,6 +353,16 @@ void copy_from_lake_to_buffer(double *buffer, double *lake, int incr){
 }
 
 void copy_from_buffer_to_lake(double *lake, double *buffer, int incr){
+    /* This function copies the grid values from buffer (received by MPI_Irecv)
+        into lake array.
+    
+                                                                                ^^
+                                                                                ^^
+    ^^^^^^^^^^^^^^^^^^^^^^ in buffer is copied in the lake array like this      ^^      
+                                                                                ^^
+                                                                                ^^
+                                                                                ^^    
+    */
     int k =0;
     double *ptr = lake;
     for(k=0; k<incr; k+=2) {
