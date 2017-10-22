@@ -1,0 +1,165 @@
+P1
+
+Case A:
+
+[kmishra@c47 lulesh2.0.3]$ mpirun -np 8 -bind-to core ./lulesh2.0 -s 20 -i 5
+Warning: Process to core binding is enabled and OMP_NUM_THREADS is set to non-zero (8) value
+If your program has OpenMP sections, this can cause over-subscription of cores and consequently poor performance
+To avoid this, please re-run your application after setting MV2_ENABLE_AFFINITY=0
+Use MV2_USE_THREAD_WARNING=0 to suppress this message
+mpiP:
+mpiP: mpiP: mpiP V3.4.1 (Build Oct 21 2017/20:38:56)
+mpiP: Direct questions and errors to mpip-help@lists.sourceforge.net
+mpiP:
+Running problem size 20^3 per domain until completion
+Num processors: 8
+Num threads: 8
+Total number of elements: 64000
+
+To run other sizes, use -s <integer>.
+To run a fixed number of iterations, use -i <integer>.
+To run a more or less balanced region set, use -b <integer>.
+To change the relative costs of regions, use -c <integer>.
+To print out progress, use -p
+To write an output file for VisIt, use -v
+See help (-h) for more options
+
+Run completed:
+   Problem size        =  20
+   MPI tasks           =  8
+   Iteration count     =  5
+   Final Origin Energy = 2.092107e+07
+   Testing Plane 0 of Energy Array on rank 0:
+        MaxAbsDiff   = 6.548362e-11
+        TotalAbsDiff = 6.559739e-11
+        MaxRelDiff   = 8.066288e-13
+
+
+Elapsed time         =       0.24 (s)
+Grind time (us/z/c)  =  5.9339941 (per dom)  (0.74174926 overall)
+FOM                  =  1348.1645 (z/s)
+
+mpiP:
+mpiP: Storing mpiP output in [./lulesh2.0.8.22519.1.mpiP].
+mpiP:
+
+
+Case B:
+
+[kmishra@c47 lulesh2.0.3]$ mpirun -np 8 ./lulesh2.0 -s 20 -i 5
+Warning: Process to core binding is enabled and OMP_NUM_THREADS is set to non-zero (8) value
+If your program has OpenMP sections, this can cause over-subscription of cores and consequently poor performance
+To avoid this, please re-run your application after setting MV2_ENABLE_AFFINITY=0
+Use MV2_USE_THREAD_WARNING=0 to suppress this message
+mpiP:
+mpiP: mpiP: mpiP V3.4.1 (Build Oct 21 2017/20:38:56)
+mpiP: Direct questions and errors to mpip-help@lists.sourceforge.net
+mpiP:
+Running problem size 20^3 per domain until completion
+Num processors: 8
+Num threads: 8
+Total number of elements: 64000
+
+To run other sizes, use -s <integer>.
+To run a fixed number of iterations, use -i <integer>.
+To run a more or less balanced region set, use -b <integer>.
+To change the relative costs of regions, use -c <integer>.
+To print out progress, use -p
+To write an output file for VisIt, use -v
+See help (-h) for more options
+
+Run completed:
+   Problem size        =  20
+   MPI tasks           =  8
+   Iteration count     =  5
+   Final Origin Energy = 2.092107e+07
+   Testing Plane 0 of Energy Array on rank 0:
+        MaxAbsDiff   = 6.548362e-11
+        TotalAbsDiff = 6.559739e-11
+        MaxRelDiff   = 8.066288e-13
+
+
+Elapsed time         =      38.46 (s)
+Grind time (us/z/c)  =  961.55721 (per dom)  ( 120.19465 overall)
+FOM                  =  8.3198378 (z/s)
+
+mpiP:
+mpiP: Storing mpiP output in [./lulesh2.0.8.22618.1.mpiP].
+mpiP:
+
+Case C:
+
+[kmishra@c74 lulesh2.0.3]$ mpirun -np 64 -bind-to core ./lulesh2.0 -s 80 -i 20
+mpiP:
+mpiP: mpiP: mpiP V3.4.1 (Build Oct 21 2017/20:52:57)
+mpiP: Direct questions and errors to mpip-help@lists.sourceforge.net
+mpiP:
+Running problem size 80^3 per domain until completion
+Num processors: 64
+Total number of elements: 32768000
+
+To run other sizes, use -s <integer>.
+To run a fixed number of iterations, use -i <integer>.
+To run a more or less balanced region set, use -b <integer>.
+To change the relative costs of regions, use -c <integer>.
+To print out progress, use -p
+To write an output file for VisIt, use -v
+See help (-h) for more options
+
+Run completed:
+   Problem size        =  80
+   MPI tasks           =  64
+   Iteration count     =  20
+   Final Origin Energy = 5.316142e+09
+   Testing Plane 0 of Energy Array on rank 0:
+        MaxAbsDiff   = 2.980232e-07
+        TotalAbsDiff = 3.026954e-07
+        MaxRelDiff   = 1.633415e-12
+
+
+Elapsed time         =      38.47 (s)
+Grind time (us/z/c)  =  3.7567064 (per dom)  (0.058698537 overall)
+FOM                  =    17036.2 (z/s)
+
+mpiP:
+mpiP: Storing mpiP output in [./lulesh2.0.64.21675.1.mpiP].
+mpiP:
+
+Case D:
+
+[kmishra@c74 lulesh2.0.3]$ mpirun -np 64 ./lulesh2.0 -s 80 -i 20
+mpiP:
+mpiP: mpiP: mpiP V3.4.1 (Build Oct 21 2017/20:52:57)
+mpiP: Direct questions and errors to mpip-help@lists.sourceforge.net
+mpiP:
+Running problem size 80^3 per domain until completion
+Num processors: 64
+Total number of elements: 32768000
+
+To run other sizes, use -s <integer>.
+To run a fixed number of iterations, use -i <integer>.
+To run a more or less balanced region set, use -b <integer>.
+To change the relative costs of regions, use -c <integer>.
+To print out progress, use -p
+To write an output file for VisIt, use -v
+See help (-h) for more options
+
+Run completed:
+   Problem size        =  80
+   MPI tasks           =  64
+   Iteration count     =  20
+   Final Origin Energy = 5.316142e+09
+   Testing Plane 0 of Energy Array on rank 0:
+        MaxAbsDiff   = 2.980232e-07
+        TotalAbsDiff = 3.026954e-07
+        MaxRelDiff   = 1.633415e-12
+
+
+Elapsed time         =      38.49 (s)
+Grind time (us/z/c)  =  3.7586838 (per dom)  (0.058729435 overall)
+FOM                  =  17027.237 (z/s)
+
+mpiP:
+mpiP: Storing mpiP output in [./lulesh2.0.64.21782.1.mpiP].
+mpiP:
+
