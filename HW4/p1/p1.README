@@ -1,6 +1,10 @@
-P1
+Group Author info:
+aapatel8 Akshit A Patel
+kmishra Kushagra Mishra
+pranjan Pritesh Ranjan
 
-Case A:
+-------------------------------------------------------------------------------
+Case A: (X,T,P,S,I) = (1,8,8,20,5) -- Combination of MPI and OpenMP
 
 [kmishra@c47 lulesh2.0.3]$ mpirun -np 8 -bind-to core ./lulesh2.0 -s 20 -i 5
 Warning: Process to core binding is enabled and OMP_NUM_THREADS is set to non-zero (8) value
@@ -44,7 +48,8 @@ mpiP: Storing mpiP output in [./lulesh2.0.8.22519.1.mpiP].
 mpiP:
 
 
-Case B:
+-------------------------------------------------------------------------------
+Case B: (X,T,P,S,I) = (1,8,8,20,5) Same as A, but without core binding
 
 [kmishra@c47 lulesh2.0.3]$ mpirun -np 8 ./lulesh2.0 -s 20 -i 5
 Warning: Process to core binding is enabled and OMP_NUM_THREADS is set to non-zero (8) value
@@ -87,7 +92,8 @@ mpiP:
 mpiP: Storing mpiP output in [./lulesh2.0.8.22618.1.mpiP].
 mpiP:
 
-Case C:
+-------------------------------------------------------------------------------
+Case C: (X,T,P,S,I) = (4,0,64,80,20) -- MPI Only
 
 [kmishra@c74 lulesh2.0.3]$ mpirun -np 64 -bind-to core ./lulesh2.0 -s 80 -i 20
 mpiP:
@@ -125,7 +131,8 @@ mpiP:
 mpiP: Storing mpiP output in [./lulesh2.0.64.21675.1.mpiP].
 mpiP:
 
-Case D:
+-------------------------------------------------------------------------------
+Case D: (X,T,P,S,I) = (1,8,8,20,5) -- Same as C but without core binding
 
 [kmishra@c74 lulesh2.0.3]$ mpirun -np 64 ./lulesh2.0 -s 80 -i 20
 mpiP:
@@ -162,4 +169,12 @@ FOM                  =  17027.237 (z/s)
 mpiP:
 mpiP: Storing mpiP output in [./lulesh2.0.64.21782.1.mpiP].
 mpiP:
+
+
+
+-----------------------  Results Analysis ------------------
+Elapsed time A:       0.24 sec
+Elapsed time B:      38.46 sec
+Elapsed time C:      38.47 sec
+Elapsed time D:      38.49 sec
 
