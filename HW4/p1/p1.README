@@ -66,7 +66,8 @@ The Allreduce function calls used 9.56% of the total aggregate application time 
 We observed that with increasing number of OpenMP threads 
 (T=1,8,16,64) the elapsed time increased with increasing number of OpenMP threads. 
 This is because the Lulesh job is computation heavy and we don't get much benefit by
- having multiple OpenMp threads on the same core. The thread spawning and scheduling overhead increased with number of threads and hence increased the elapsed time.
+ having multiple OpenMp threads on the same core. The thread spawning and scheduling overhead 
+ increased with number of threads and hence increased the elapsed time.
 
 We also observed that keeping T constant, but increasing the number of cores decreased 
 the app-time but increased the MPI% time.
