@@ -1,0 +1,25 @@
+Group info:
+kmishra Kushagra Mishra
+pranjan Pritesh Ranjan
+aapatel8 Akshit Patel
+
+CSC 548 - HW4 P2
+
+Q: How scaling the frequency affects time
+A: The rate of frequency, or clock rate, of a processor indicates the speed at which it runs. Simply stated, the higher the frequence
+of the processor, the faster it will process instructions. Considering other factors such as problem size and input size is kept
+constant, we expect the time to complete programs to decrease as the frequency increases. There is a negatively linear relationship between 
+frequency and time as shown by the plot.
+
+
+Q: How scaling the frequency affects power
+A: Power is the amount of energy transferred per unit of time. It is used to estimate the amount of energy used to dissipate heat 
+from the machine and increasing the frequency leads to processors working more, causing increase in heat produced. This leads to
+the machine worker harder to dissipate the heat (causing increased power) to keep the temperature at normal levels. There is a positively 
+linear relationship between frequency and power as shown by the plot.
+
+Q: How scaling the frequency affects stall counts
+A: When a process is waiting on a memory request, it issues stall cycles. This continues to occur until the memory request is ready.
+Increasing the frequency leads to faster processing of instructions, but does not affect the time taken for memory requests. This means
+that even if the frequency is increased, leading to faster completion of instruction, it causes even more waiting for memory requests, 
+leading to high stall cycles. There is a positively linear correlation between frequency and stall counts as shown by the plot.
