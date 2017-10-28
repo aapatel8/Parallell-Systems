@@ -11,17 +11,7 @@ Elapsed time C:      38.47 sec
 Elapsed time D:      38.49 sec
 
 
-Evaluate the "Elapsed time" for each of the 4 different configurations,  
-Discuss/explain your findings in p1.README. Make sure to consider the different
- number of nodes, amount of parallelism, different types of parallelism, and problem 
- size for the given configurations.
-
-For each configuration above, report the % of time spent in MPI, distinguish node 0 
-and all other nodes. Identify the most expensive MPI call and report its App% and
- MPI% time relative to the overall respective time. What differences are there between 
- configurations? Include this in p1.README
-
-Here we can have two types of parallelism 
+Here we have two types of parallelism 
 1. Between different cores - The overhead with inter-core parallelism is due 
     of MPI communication.
 2. Between different threads on the same core. - The overhead is in spawning multiple
@@ -39,7 +29,7 @@ is required among threads), then even having multiple cores is not beneficial.
 Case A: (X,T,P,S,I) = (1,8,8,20,5) -- Combination of MPI and OpenMP
 We have 8 MPI tasks with 8 OpenMP threads spawned by each task and we have
 16 cores available. The MPI tasks are bound to a core and the 8 OpenMP threads 
-associated with the task, take turns in running on the processor. 
+are associated with the task, OpenMP threads take turns in running on the core. 
 
 Elapsed time = 0.24 Sec.
 % of Total time spent by all processes in MPI : 18.12%
@@ -95,7 +85,7 @@ Most expensive MPI Call: Allreduce    App% = 0.10%  MPI%= 29.49%
 We observed that elapsed time increased drastically due to removing 
 -bind-to-core option for OpenMP threads while keeping all other factors constant.
 This is because, when the OpenMP threads are dynamically scheduled on different cores,
-there is an overhead associating with cache warm up on the new core.
+there is an overhead associated with thread schedulig, and cache warm up on the new core.
 
 This hypothesis is supported by the fact that although absolute MPITime remained 
 almost same, AppTime increased drastically. In other words, time spent outside of 
@@ -114,6 +104,9 @@ Elapsed time         =      38.47 (s)
 
 Most expensive MPI Call: Allreduce    App% = 10.26%  MPI%= 92.70%
 We notice that most of the MPI time is spent in reducing the results from different tasks.
+This is expected because we have larger problem size which will result in larger intermediate
+values. Moreover, we have large number of nodes to reduce data from, hence Allreduce 
+takes the lion chunk of MPI Time.
 
 As expected, the absolute MPITime increases for all tasks, because we have more tasks.
 The app-time also increases (compared to A), which is also as expected because the 
