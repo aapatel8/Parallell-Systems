@@ -6,7 +6,7 @@ aapatel8 Akshit Patel
 CSC 548 - HW4 P2
 
 Q: How scaling the frequency affects time
-A: The rate of frequency, or clock rate, of a processor indicates the speed at which it runs. Simply stated, the higher the frequence
+A: The rate of frequency, or clock rate, of a processor indicates the speed at which it runs. Simply stated, the higher the frequency
 of the processor, the faster it will process instructions. Considering other factors such as problem size and input size is kept
 constant, we expect the time to complete programs to decrease as the frequency increases. There is a negatively linear relationship between 
 frequency and time as shown by the plot.
