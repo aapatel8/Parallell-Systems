@@ -39,7 +39,6 @@ PERM double *u_i1;
 PERM double *u_cpu;
 PERM double *pebs;
 
-PERM double elapsed_cpu; 
 PERM double t;
 
 #define BACK_FILE "/tmp/app.back" /* Note: different backup and mmap files */
@@ -55,7 +54,7 @@ int main(int argc, char *argv[])
 
     const double h = (XMAX - XMIN)/npoints;
 
-    //double elapsed_cpu;
+    double elapsed_cpu;
     int do_restore;
     struct timeval cpu_start, cpu_end;
     do_restore = argc > 1 && strcmp("-r", argv[1]) == 0;
@@ -83,13 +82,13 @@ int main(int argc, char *argv[])
         backup();
     }
 
-  //  gettimeofday(&cpu_start, NULL);
+    gettimeofday(&cpu_start, NULL);
     run_cpu(u_cpu, u_i0, u_i1, pebs, npoints, h, end_time);
-   // gettimeofday(&cpu_end, NULL);
-/*
+    gettimeofday(&cpu_end, NULL);
+
     elapsed_cpu = ((cpu_end.tv_sec + cpu_end.tv_usec * 1e-6)-(
                 cpu_start.tv_sec + cpu_start.tv_usec * 1e-6));
- */   printf("Execution took %f seconds\n", elapsed_cpu);
+    printf("Execution took %f seconds\n", elapsed_cpu);
 
     print_heatmap("lake_f.dat", u_cpu, npoints, h);
 
@@ -111,26 +110,21 @@ void run_cpu(double *u, double *u0, double *u1, double *pebbles, int n, double h
     uc = u1;
     un = u;
     dt = h / 2.;
-    struct timeval a_time, b_time;
-    struct timeval *a, *b, *tt;
-    a = &a_time;
-    b = &b_time;
-    gettimeofday(a, NULL);
+    int status;
     while(1)
     {
         printf("Timestep %f\n",t);
         evolve(un, uc, uo, pebbles, n, h, dt, t);
-        temp = uo;
+      /*  temp = uo;
         uo = uc;
         uc = un;
         un = temp;
-        gettimeofday(b, NULL);
-        elapsed_cpu += (b->tv_sec + b->tv_usec/1000000.0) - (a->tv_sec + a->tv_usec/1000000.0);
-        tt = a;
-        a = b;
-        b = tt;
+      */
+        memcpy(uo, uc, sizeof(double) * n * n);
+        memcpy(uc, un, sizeof(double) * n * n);
+        status = tpdt(&t,dt,end_time);
         backup();
-        if(!tpdt(&t,dt,end_time)) break;
+        if(!status) break;
     }
     if(u != uc){
         memcpy(u, uc, sizeof(double) * n * n);
