@@ -1,0 +1,24 @@
+Group info:
+kmishra Kushagra Mishra
+pranjan Pritesh Ranjan
+aapatel8 Akshit Patel
+
+CSC 548 - HW5 P3
+
+In this particular program, since program variables like npoints, npebs
+and end_time are constant we don't need to backup them. In a more versatile
+program, these program configuration variables would be critical to backup.
+
+We also noticed that the local variables used in evolve function are redundant and
+we can simply use the lake grids allocated in main function. (namely, u_i0, u_i1
+pebs, and u_cpu). Thereby, eleminating the need to backup the local lake grids
+un, uo and uc.
+
+We also need to backup the time already spent in the previous run-session of the
+program, hence we backup variable 't'. Moreover, since a variable which is to be
+backed up can't be of automatic scope, we had to make 't' a global variable.
+
+In summary, we had to backup the pebbles' initial locations, and intermediate 
+grid values, and time already spent in execution-'t'.
+
+
