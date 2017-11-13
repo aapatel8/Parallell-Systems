@@ -1,3 +1,10 @@
+/*   Group info:
+ *   kmishra Kushagra Mishra
+ *   pranjan Pritesh Ranjan
+ *   aapatel8 Akshit Patel
+ */
+
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -30,9 +37,8 @@ void init(double *u, double *pebbles, int n);
 void evolve(double *un, double *uc, double *uo, double *pebbles, int n, double h, double dt, double t);
 void print_heatmap(const char *filename, double *u, int n, double h);
 
-/* (u_cpu, u_i0, u_i1, pebs, npoints, h, end_time
- * &cpu_start &cpu_end
- * */
+
+/* These memory blocks should be persisted between different sessions */
 
 PERM double *u_i0;
 PERM double *u_i1;
@@ -41,21 +47,21 @@ PERM double *pebs;
 
 PERM double t;
 
-#define BACK_FILE "/tmp/app.back" /* Note: different backup and mmap files */
-#define MMAP_FILE "/tmp/app.mmap"
+#define BACK_FILE "/tmp/prakku.back" /* Note: different backup and mmap files */
+#define MMAP_FILE "/tmp/prakku.mmap"  /* PRitesh AKshit KUshagra */
 #define MMAP_SIZE ((size_t)1 << 30)
 
 int main(int argc, char *argv[])
 {
+    /* Since these are practically constants, we don't backup these variables */
     int     npoints   = DEFAULT_NPOINTS;
     int     npebs     = DEFAULT_NPEBS;
     double  end_time  = DEFAULT_END_TIME;
     int     narea     = npoints * npoints;
-
-    const double h = (XMAX - XMIN)/npoints;
+    double h = (XMAX - XMIN)/npoints;
 
     double elapsed_cpu;
-    int do_restore;
+    int do_restore;     
     struct timeval cpu_start, cpu_end;
     do_restore = argc > 1 && strcmp("-r", argv[1]) == 0;
     char *mode = (do_restore) ? "r+" : "w+";
@@ -63,8 +69,9 @@ int main(int argc, char *argv[])
     mopen(MMAP_FILE, mode, MMAP_SIZE);
     bopen(BACK_FILE, mode);
     if(do_restore == TRUE){
+        // Restore values from previous run that was interrupted.
         restore();   
-    } else{
+    } else{  // First time initialization.
         u_i0 = (double*)malloc(sizeof(double) * narea);
         u_i1 = (double*)malloc(sizeof(double) * narea);
         pebs = (double*)malloc(sizeof(double) * narea);
@@ -78,7 +85,7 @@ int main(int argc, char *argv[])
         memset(u_cpu, 0, sizeof(double) *narea);
 
         t = 0.;
-        mflush();
+        mflush();   // Flush and backup the initial values.
         backup();
     }
 
@@ -99,6 +106,8 @@ int main(int argc, char *argv[])
 
     mclose();
     bclose();
+    remove(BACK_FILE);
+    remove(MMAP_FILE);
     return 0;
 }
 
@@ -115,15 +124,15 @@ void run_cpu(double *u, double *u0, double *u1, double *pebbles, int n, double h
     {
         printf("Timestep %f\n",t);
         evolve(un, uc, uo, pebbles, n, h, dt, t);
-      /*  temp = uo;
-        uo = uc;
-        uc = un;
+      /*  temp = uo; // Pointer juggling will not work becase a particular memory location is 
+        uo = uc;    // copied back and forth from map file on disk. Pointers change the memory mapping and hence
+        uc = un;    // when restore is called different data is loaded.
         un = temp;
       */
         memcpy(uo, uc, sizeof(double) * n * n);
         memcpy(uc, un, sizeof(double) * n * n);
         status = tpdt(&t,dt,end_time);
-        backup();
+        backup();  // Backup all the data that should persist after each iteration. 
         if(!status) break;
     }
     if(u != uc){

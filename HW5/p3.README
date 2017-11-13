@@ -5,6 +5,8 @@ aapatel8 Akshit Patel
 
 CSC 548 - HW5 P3
 
+Q: What data structures did you have to place in persistent memory?
+
 In this particular program, since program variables like npoints, npebs
 and end_time are constant we don't need to backup them. In a more versatile
 program, these program configuration variables would be critical to backup.
@@ -21,4 +23,23 @@ backed up can't be of automatic scope, we had to make 't' a global variable.
 In summary, we had to backup the pebbles' initial locations, and intermediate 
 grid values, and time already spent in execution-'t'.
 
+
+NOTE: Issue with PERM and pointer shuffling.
+
+Inside run_cpu method for previous homeworks, we hadn't explicitly copied 
+grids from (un -> uc) and (uc->uo) rather, we couldn't just get away with 
+juggling pointers like this.
+/*
+  double *temp = uo;
+  uo = uc;    
+  uc = un;    
+  un = temp;
+*/
+
+However, with PERM, pointer juggling didn't work and we MUST copy the memory blocks
+in each iteration.
+
+This is becase a particular memory location is copied back and forth from
+map file on disk. Pointers change the memory mapping and hence
+when restore is called different data is loaded.
 
