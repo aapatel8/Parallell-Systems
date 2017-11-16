@@ -23,9 +23,11 @@ backed up can't be of automatic scope, we had to make 't' a global variable.
 In summary, we had to backup the pebbles' initial locations, and intermediate 
 grid values, and time already spent in execution-'t'.
 
-
-NOTE: Issue with PERM and pointer shuffling.
-
+------------------------------------------------------
+Other aspects of your solution
+==>
+Initially we attempted to remove the memcpy calls inside the evolve method
+by replacing it with pointer juggling trick. 
 Inside run_cpu method for previous homeworks, we hadn't explicitly copied 
 grids from (un -> uc) and (uc->uo) rather, we couldn't just get away with 
 juggling pointers like this.

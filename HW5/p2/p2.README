@@ -30,21 +30,33 @@ user    0m9.092s
 sys     0m0.132s
 
 Q: What is the overhead of performing one checkpoint?
-A: The overhead of one checkpoint is the difference between the real times of case B and case A, which is 40.387 - 38.633 => 1.754 seconds.
+A: The overhead of one checkpoint is the difference between the real times 
+of case B and case A, which is 40.387 - 38.633 => 1.754 seconds.
 
 Q: What is the overhead of one restart?
-A: The overhead of one restart can be calculated by adding 30 to the real time of case C and then subtracting it from the real time of case A.
+A: The overhead of one restart can be calculated by adding 30 to the real 
+time of case C and then subtracting it from the real time of case A.
 This results in (10.750 + 30) - 40.387 => 0.363 seconds. 
 
-Q: How to the "real" times for each case compare to the execution time output by the Lake code?
-A: The real times for each case (except case C) is just slightly greater than the execution time. This makes sense since the real time takes 
-into account the execution time along with the time of the rest of the program logic which includes things like initializing pebbles and printing 
-the heatmap. And the real time is only just slightly greater because most of the program is spent in the run_cpu function, which has the main logic. 
-The execution time for case C is much higher than the real time because of the reason below.
+Q: How to the "real" times for each case compare to the execution time 
+output by the Lake code?
+
+A: The real times for each case (except case C) is just slightly greater 
+than the execution time. This makes sense since the real time takes 
+into account the execution time along with the time of the rest of 
+the program logic which includes things like initializing pebbles 
+and printing the heatmap. And the real time is only just slightly greater 
+because most of the program is spent in the run_cpu function, which has 
+the main logic. The execution time for case C is much higher than the real
+time because of the reason below.
 
 Q: You should see a very large execution time reported by the Lake code in case C. Why?
-A: The execution time reported in case C is much larger than the execution time reported in the other cases because the execution time is 
-calculated by taking the difference between the start time and end time. The start time is calculated before the run_cpu function and the
-end time is calculated after. When the checkpoint is created in the middle of the run_cpu function, we have the start time saved. When the
-script is run to continue case C, we use the previous start time and calculate the end time at the end of case C, which is much later. This
-results in a much higher execution time.
+
+A: The execution time reported in case C is much larger than the execution time 
+reported in the other cases because the execution time is calculated by taking
+the difference between the start time and end time. The start time is calculated
+before the run_cpu function and the end time is calculated after. When the 
+checkpoint is created in the middle of the run_cpu function, we have the start 
+time saved. When the script is run to continue case C, we use the previous 
+start time and calculate the end time at the end of case C, which is much later. 
+This results in a much higher execution time.
