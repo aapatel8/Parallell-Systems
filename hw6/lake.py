@@ -17,7 +17,11 @@ def DisplayArray(a, fmt='jpeg', rng=[0,1]):
       PIL.Image.fromarray(a).save(f, "jpeg")
 
 sess = tf.InteractiveSession()
-
+"""
+config = tf.ConfigProto(intra_op_parallelism_threads=16, inter_op_parallelism_threads=16, \
+                        allow_soft_placement=True, device_count = {'CPU': 1})
+sess = tf.Session(config=config)
+"""
 # Computational Convenience Functions
 def make_kernel(a):
   """Transform a 2D array into a convolution kernel"""
@@ -42,8 +46,16 @@ def laplace(x):
   nine_point = [[0.25, 1.0, 0.25],
                 [1.00, -5., 1.00],
                 [0.25, 1.0, 0.25]]
-						   
-  laplace_k = make_kernel(nine_point)
+						  
+  thirteen_point = [[0.0,   0.0,   0.125, 0.0,   0.0],
+                    [0.0,   0.250, 1.0,   0.250, 0.0],
+                    [0.125, 1.0,   -5.50, 1.0,   0.125],
+                    [0.0,   0.250, 1.0,   0.250, 0.0],
+                    [0.0,   0.0,   0.125, 0.0,   0.0]]
+  
+  #laplace_k = make_kernel(nine_point)
+
+  laplace_k = make_kernel(thirteen_point)
   return simple_conv(x, laplace_k)
 
 # Define the PDE
