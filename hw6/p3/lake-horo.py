@@ -41,7 +41,7 @@ def DisplayArray(a, fmt='jpeg', rng=[0,1]):
   """Display an array as a picture."""
   a = (a - rng[0])/float(rng[1] - rng[0])*255
   a = np.uint8(np.clip(a, 0, 255))
-  with open("lake_py_{0}.jpg".format(hvd.rank()), "w") as f:    # TODO: Chage name
+  with open("lake_py_{0}.jpg".format(hvd.rank()), "w") as f: 
       PIL.Image.fromarray(a).save(f, "jpeg")
 
 
@@ -88,6 +88,7 @@ def laplace(x):
 u_init  = np.zeros([N, N], dtype=np.float32)
 ut_init = np.zeros([N+2, N], dtype=np.float32)
 
+# Send and receive buffers.
 np_send_buf = np.zeros([2,N], dtype=np.float32)
 np_recv_buf_0 = np.zeros([2,N], dtype=np.float32)
 np_recv_buf_1 = np.zeros([2,N], dtype=np.float32)
@@ -124,12 +125,12 @@ tf_recv_buf_1 = tf.Variable(np_recv_buf_1, "recv_buf_1")
 U_ = U + eps * Ut
 Ut_ = Ut + eps * (laplace(U) - damping * Ut)
 
-if hvd.rank() == 0:
+if hvd.rank() == 0:  # Rank 0 send the two rows fron N-2 to N
     send_buf = U[-4:-2, :]
-else:
+else:  # Rank 1 sends the rows from 2 to 4
     send_buf = U[2:4, :]
 
-# Operation to update the state
+# Operation to update the state for Rank 0
 r0_step = tf.group(
   U.assign(tf.concat(values=[tf.slice(U, [0,0],[N,N]), tf_recv_buf_0], axis=0)),
   U.assign(U_),
@@ -137,13 +138,14 @@ r0_step = tf.group(
   tf_send_buf.assign(send_buf))
   
 
+# Update the state for Rank 1
 r1_step = tf.group(
-  U.assign(tf.concat(values=[tf_recv_buf_1, tf.slice(U, [2,0], [N,N])], axis=0),
+  U.assign(tf.concat(values=[tf_recv_buf_1, tf.slice(U, [2,0], [N,N])], axis=0)),
   U.assign(U_),
   Ut.assign(Ut_),
-  tf_send_buf.assign(send_buf)
-  )
+  tf_send_buf.assign(send_buf))
 
+# Broadcast the two rows
 broadcast = tf.group(
   tf.assign(tf_recv_buf_1, hvd.broadcast(tf_send_buf, 0)),
   tf.assign(tf_recv_buf_0, hvd.broadcast(tf_send_buf, 1)))
@@ -167,3 +169,4 @@ if hvd.rank() == 0:
   DisplayArray(U.eval()[:-2,:], rng=[-0.1, 0.1])
 else:
   DisplayArray(U.eval()[2:, :], rng=[-0.1, 0.1])
+
