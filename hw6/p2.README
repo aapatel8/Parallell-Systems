@@ -185,7 +185,7 @@ The graph is in P2_EXTRA_CREDIT_TensorFlow_vs_HW2_V2_Vary_NPEBS.PNG
 
 - Varying num_iter.
 Varying num_iter increased the execution time linearly. Although the rate of increase was higher in case of tensorflow.
-We believe this rate is due to the different damping rate of the programs.
+We believe this rate is due to the different time resolutions of the two programs.
 The graph is in P2_EXTRA_CREDIT_TensorFlow_vs_HW2_V2_Vary_num_iters.PNG
 
 --------------- RAW DATA ----------------------------------
