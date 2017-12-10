@@ -3,20 +3,26 @@
  *   pranjan Pritesh Ranjan
  *   aapatel8 Akshit Patel
  */
-
+Q. Compare the execution time of your lake.py against lake.o using the parameters 
+    N=512, npebs=40, num_iter=400.
+------------
+A. 
+ 
+----------------------------------------------------------------------------------- 
 Q: Provide possible explanations for the difference in execution times. 
-
+------------
 A: 
-TODO: 
 
+-----------------------------------------------------------------------------------
 Q: Test other parameter configurations to see which of the three input 
    parameters affects execution time the most. 
   
   Be sure to include the parameter values and execution time for each test case you used.
-
+-------------
 A:
 
------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------
+--------------------RAW DATA ---------------------------------------------------------
 Varying N:
 ----------
 Effect on OpenMP binary(lake.o):

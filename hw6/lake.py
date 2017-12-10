@@ -1,5 +1,11 @@
 #!/bin/python
-
+"""
+/*   Group info:
+ *   kmishra Kushagra Mishra
+ *   pranjan Pritesh Ranjan
+ *   aapatel8 Akshit Patel
+ */
+"""
 #Import libraries for simulation
 import tensorflow as tf
 import numpy as np
