@@ -40,7 +40,8 @@ A: A CPU is built for low latency tasks while a GPU is built for high throughput
    Since, the installed tensorflow program generates binary optimal for a GPU, running 
    them on a CPU makes them slower.
    
-   Our hypothesis is supported by  https://www.tensorflow.org/performance/performance_guide#optimizing_for_cpu
+   Our hypothesis is supported by  
+   https://www.tensorflow.org/performance/performance_guide#optimizing_for_cpu
    which states that if the tensorflow programs are to be executed on a CPU then tensorflow 
    should be compiled from source with different compiler flags.
    
@@ -52,28 +53,39 @@ Q: Test other parameter configurations to see which of the three input
   Be sure to include the parameter values and execution time for each test case you used.
 -------------
 A: 
-We have analysed the execution time for both lake.py and lake.o by varying one of (N, npebs, num_iters)
-while keeping the others constant.
+We have analysed the execution time for both lake.py and lake.o by varying 
+one of (N, npebs, num_iters) while keeping the others constant.
 
+----
 Varying N: (npebs = 4, num_iters= 100)
-While OpenMP program lake.o is faster than TensorFlow program, the execution time of both 
-increase quadratically with increasing N. This is expected since, the algorithm operates on an 
-N^2 grid. The graph is presented in accompanying image P2_time_vs_N.png.
+While OpenMP program lake.o is faster than TensorFlow program, 
+the execution time of both increase quadratically with increasing N. 
+This is expected since, the algorithm operates on an N^2 grid. 
+The graph is presented in accompanying image P2_time_vs_N.png.
 
+We also noted that varying N on GTX1080 had comparatively less effect. 
+The execution time grew almost linearly, and beats the lake.o program for N > 1920. 
+The graph is in in P2_Gtx1080_VS_CPU.PNG
 
-We also noted that varying N on GTX1080 had comparatively less effect. The execution time grew almost linearly, and beats the lake.o program for N > 1920. The graph is in in P2_Gtx1080_VS_CPU.PNG
-
+----
 Varying npebs: (N=128, num_iters= 100)
 
-Varying npebs had almost no effect on execution times. In both the cases the change in execution time looks unrelated to npebs. 
-This hypothesis is based on the fact that no matter how many npebs are there the amount of calculation doesn't change. The program still has to calculate the location no reagardless of the value being zero or not.
+Varying npebs had almost no effect on execution times. 
+In both the cases the change in execution time looks unrelated to npebs. 
+This hypothesis is based on the fact that no matter how many npebs are 
+there the amount of calculation doesn't change. The program still has 
+to calculate the location no reagardless of the value being zero or not.
 Please note that the variation in execution time is very small.
 The graph is presented in accompanying image P2_time_vs_npebs.PNG
 
+----
 Varying num_iters. (N=128, npebs=4)
 
-Our guess was that varying num_iters should linearly increase the execution time of both the 
-programs. The execution time of the tensorflow program increased linearly and monotonically. In case of OpenMP program, although the increase was linear it was not monotonic. We don't have an explanation for this.
+Our guess was that varying num_iters should linearly increase the 
+execution time of both the programs. The execution time of the 
+tensorflow program increased linearly and monotonically. 
+In case of OpenMP program, although the increase was linear it was not strictly monotonic. 
+The slight decrease difference in execution might be due to system state variations.
 Graph in accompanying image P2_time_vs_num_iter.PNG
 
 -----------------------------------------------------------------------------------
@@ -171,21 +183,28 @@ Effect on TensorFlow (lake.py):
 ------------------------------ EXTRA CREDIT ------------------------------------------
 
 Comparing HW2-v2 implementation to HW6-TensorFlow implementation on GTX 1080.
- For GTX1080, We noticed that first run of lake.py would result in higher execution times than the subsequent ones.
+ For GTX1080, We noticed that first run of lake.py would result in higher 
+ execution times than the subsequent ones.
 
 - Varying N:
-While both the execution time of both the implementations increases with increasing N. The tensorflow implementation increases almost 
-linearly while our HW2-v2 implementation increase quadratically. Graph in P2_EXTRA_CREDIT_TensorFlow_vs_HW2_V2_Vary_N.PNG
+While both the execution time of both the implementations increases with 
+increasing N. The tensorflow implementation increases almost linearly 
+while our HW2-v2 implementation increase quadratically. 
+Graph in P2_EXTRA_CREDIT_TensorFlow_vs_HW2_V2_Vary_N.PNG
 
 - Varying npebs:
-Varying npebs has no effect on the execution times. This is true for the tensorflow implementation as well as HW2-V2 implementation.
-This is because, the amount of computation doesn't depend on the number of pebbles. 
-However, our HW2-V2 implementation has a higher constant overhead. Hence, the absolute time taken is higher.
+Varying npebs has no effect on the execution times. This is true for 
+the tensorflow implementation as well as HW2-V2 implementation.
+This is because, the amount of computation doesn't depend on 
+the number of pebbles. However, our HW2-V2 implementation has a 
+higher constant overhead. Hence, the absolute time taken is higher.
 The graph is in P2_EXTRA_CREDIT_TensorFlow_vs_HW2_V2_Vary_NPEBS.PNG
 
 - Varying num_iter.
-Varying num_iter increased the execution time linearly. Although the rate of increase was higher in case of tensorflow.
-We believe this rate is due to the different time resolutions of the two programs.
+Varying num_iter increased the execution time linearly. Although 
+the rate of increase was higher in case of tensorflow.
+We believe this difference in rate is due to the different 
+time resolutions of the two programs.
 The graph is in P2_EXTRA_CREDIT_TensorFlow_vs_HW2_V2_Vary_num_iters.PNG
 
 --------------- RAW DATA ----------------------------------
